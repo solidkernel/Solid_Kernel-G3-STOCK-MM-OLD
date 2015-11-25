@@ -32,16 +32,16 @@
 #define DEBUG 0
 
 #define MPDEC_TAG			"bricked_hotplug"
-#define HOTPLUG_ENABLED			0
-#define MSM_MPDEC_STARTDELAY		20000
-#define MSM_MPDEC_DELAY			130
+#define HOTPLUG_ENABLED			1
+#define MSM_MPDEC_STARTDELAY		0
+#define MSM_MPDEC_DELAY			100
 #define DEFAULT_MIN_CPUS_ONLINE		1
 #define DEFAULT_MAX_CPUS_ONLINE		NR_CPUS
 #define DEFAULT_MAX_CPUS_ONLINE_SUSP	1
 #define DEFAULT_SUSPEND_DEFER_TIME	10
 #define DEFAULT_DOWN_LOCK_DUR		500
-
-#define MSM_MPDEC_IDLE_FREQ		422400
+#define HOTPLUG_PROFILE			1
+#define MSM_MPDEC_IDLE_FREQ		1497600
 
 enum {
 	MSM_MPDEC_DISABLED = 0,
@@ -72,6 +72,7 @@ static struct cpu_hotplug {
 	unsigned int max_cpus_online;
 	unsigned int min_cpus_online;
 	unsigned int bricked_enabled;
+	unsigned int profile;
 	struct mutex bricked_hotplug_mutex;
 	struct mutex bricked_cpu_mutex;
 } hotplug = {
@@ -87,6 +88,7 @@ static struct cpu_hotplug {
 	.max_cpus_online = DEFAULT_MAX_CPUS_ONLINE,
 	.min_cpus_online = DEFAULT_MIN_CPUS_ONLINE,
 	.bricked_enabled = HOTPLUG_ENABLED,
+	.profile = HOTPLUG_PROFILE,
 };
 
 static unsigned int NwNs_Threshold[8] = {12, 0, 20, 7, 25, 10, 0, 18};
@@ -486,6 +488,7 @@ show_one(max_cpus_online, max_cpus_online);
 show_one(max_cpus_online_susp, max_cpus_online_susp);
 show_one(suspend_defer_time, suspend_defer_time);
 show_one(bricked_enabled, bricked_enabled);
+show_one(profile, profile);
 
 #define define_one_twts(file_name, arraypos)				\
 static ssize_t show_##file_name						\
@@ -739,6 +742,45 @@ static ssize_t store_bricked_enabled(struct device *dev,
 	return count;
 }
 
+static ssize_t store_profile(struct device *dev,
+				struct device_attribute *bricked_hotplug_attrs,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+
+	hotplug.profile = input;
+
+	if (input == 0) {
+		hotplug.min_cpus_online = 1;
+		hotplug.max_cpus_online = 4;
+		pr_info(MPDEC_TAG": Neutral Profile\n");
+	}
+
+	if (input == 1) {
+		hotplug.min_cpus_online = 1;
+		hotplug.max_cpus_online = 1;
+		pr_info(MPDEC_TAG": Conservative Profile\n");
+	}
+
+	if (input == 2) {
+		hotplug.min_cpus_online = 2;
+		hotplug.max_cpus_online = 2;
+		pr_info(MPDEC_TAG": Balanced Profile\n");
+	}
+
+	if (input == 3) {
+		hotplug.min_cpus_online = 4;
+		hotplug.max_cpus_online = 4;
+		pr_info(MPDEC_TAG": Performance Profile\n");
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR(startdelay, 644, show_startdelay, store_startdelay);
 static DEVICE_ATTR(delay, 644, show_delay, store_delay);
 static DEVICE_ATTR(down_lock_duration, 644, show_down_lock_duration, store_down_lock_duration);
@@ -748,6 +790,7 @@ static DEVICE_ATTR(max_cpus_online, 644, show_max_cpus_online, store_max_cpus_on
 static DEVICE_ATTR(max_cpus_online_susp, 644, show_max_cpus_online_susp, store_max_cpus_online_susp);
 static DEVICE_ATTR(suspend_defer_time, 644, show_suspend_defer_time, store_suspend_defer_time);
 static DEVICE_ATTR(enabled, 644, show_bricked_enabled, store_bricked_enabled);
+static DEVICE_ATTR(profile, 644, show_profile, store_profile);
 
 static struct attribute *bricked_hotplug_attrs[] = {
 	&dev_attr_startdelay.attr,
@@ -759,6 +802,7 @@ static struct attribute *bricked_hotplug_attrs[] = {
 	&dev_attr_max_cpus_online_susp.attr,
 	&dev_attr_suspend_defer_time.attr,
 	&dev_attr_enabled.attr,
+	&dev_attr_profile.attr,
 	&dev_attr_twts_threshold_0.attr,
 	&dev_attr_twts_threshold_1.attr,
 	&dev_attr_twts_threshold_2.attr,
