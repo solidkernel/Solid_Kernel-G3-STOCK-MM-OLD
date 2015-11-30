@@ -17,6 +17,10 @@
 #include <mach/lge_handle_panic.h>
 #endif
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <linux/memblock.h>
+#endif
+
 #ifdef CONFIG_LGE_PM
 #include <linux/qpnp/qpnp-adc.h>
 #include <mach/board_lge.h>
@@ -154,6 +158,8 @@ void get_dt_cn_prop_str(const char *name, char *value)
 	printk(KERN_ERR "The %s node have not property value\n", name);
 }
 
+
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 static struct ram_console_platform_data ram_console_pdata = {
 	.bootinfo = "UTS_VERSION\n",
@@ -206,6 +212,8 @@ void __init lge_add_persist_ram_devices(void)
 	/* change to variable value to ram->start value */
 	lge_persist_ram.start = mt->start - LGE_PERSISTENT_RAM_SIZE;
 	pr_info("PERSIST RAM CONSOLE START ADDR : 0x%x\n", lge_persist_ram.start);
+	pr_info("LGE PERSISTENT RAM SIZE : 0x%x\n", LGE_PERSISTENT_RAM_SIZE);
+	pr_info("LGE RAM Console Size : 0x%x\n", LGE_RAM_CONSOLE_SIZE);
 
 	ret = persistent_ram_early_init(&lge_persist_ram);
 	if (ret) {
@@ -217,6 +225,17 @@ void __init lge_add_persist_ram_devices(void)
 
 void __init lge_reserve(void)
 {
+	
+#ifdef CONFIG_KEXEC_HARDBOOT
+ 	struct memtype_reserve *mt = &reserve_info->memtype_reserve_table[MEMTYPE_EBI1];
+phys_addr_t start = mt->start - SZ_1M - LGE_PERSISTENT_RAM_SIZE;
+ int ret = memblock_remove(start, SZ_1M);
+ if(!ret)
+ pr_info("Hardboot page reserved at 0x%X\n", start);
+ else
+ pr_err("Failed to reserve space for hardboot page at 0x%X!\n", start);
+#endif	
+
 #if defined(CONFIG_ANDROID_PERSISTENT_RAM)
 	lge_add_persist_ram_devices();
 #endif
@@ -230,6 +249,8 @@ void __init lge_add_persistent_device(void)
 	/* write ram console addr to imem */
 	lge_set_ram_console_addr(lge_persist_ram.start,
 			LGE_RAM_CONSOLE_SIZE);
+			pr_info("LGE RAM Console Size : 0x%x\n", LGE_RAM_CONSOLE_SIZE);
+			
 #endif
 #endif
 #ifdef CONFIG_PERSISTENT_TRACER
