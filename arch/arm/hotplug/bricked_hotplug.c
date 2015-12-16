@@ -41,7 +41,8 @@
 #define DEFAULT_SUSPEND_DEFER_TIME	10
 #define DEFAULT_DOWN_LOCK_DUR		500
 #define HOTPLUG_PROFILE			1
-#define MSM_MPDEC_IDLE_FREQ		1497600
+#define HOTPLUG_THERMAL			1
+#define MSM_MPDEC_IDLE_FREQ		422400
 
 enum {
 	MSM_MPDEC_DISABLED = 0,
@@ -73,6 +74,7 @@ static struct cpu_hotplug {
 	unsigned int min_cpus_online;
 	unsigned int bricked_enabled;
 	unsigned int profile;
+	unsigned int thermal;
 	struct mutex bricked_hotplug_mutex;
 	struct mutex bricked_cpu_mutex;
 } hotplug = {
@@ -89,6 +91,7 @@ static struct cpu_hotplug {
 	.min_cpus_online = DEFAULT_MIN_CPUS_ONLINE,
 	.bricked_enabled = HOTPLUG_ENABLED,
 	.profile = HOTPLUG_PROFILE,
+	.thermal = HOTPLUG_THERMAL,
 };
 
 static unsigned int NwNs_Threshold[8] = {12, 0, 20, 7, 25, 10, 0, 18};
@@ -489,6 +492,7 @@ show_one(max_cpus_online_susp, max_cpus_online_susp);
 show_one(suspend_defer_time, suspend_defer_time);
 show_one(bricked_enabled, bricked_enabled);
 show_one(profile, profile);
+show_one(thermal, thermal);
 
 #define define_one_twts(file_name, arraypos)				\
 static ssize_t show_##file_name						\
@@ -749,33 +753,45 @@ static ssize_t store_profile(struct device *dev,
 	unsigned int input;
 	int ret;
 	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
 
 	hotplug.profile = input;
 
 	if (input == 0) {
-		hotplug.min_cpus_online = 1;
-		hotplug.max_cpus_online = 4;
-		pr_info(MPDEC_TAG": Neutral Profile\n");
-	}
-
-	if (input == 1) {
-		hotplug.min_cpus_online = 1;
-		hotplug.max_cpus_online = 1;
+		hotplug.min_cpus_online = 2;
+		hotplug.max_cpus_online = 2;
 		pr_info(MPDEC_TAG": Conservative Profile\n");
 	}
 
-	if (input == 2) {
-		hotplug.min_cpus_online = 2;
-		hotplug.max_cpus_online = 2;
+	if (input == 1) {
+		hotplug.min_cpus_online = 3;
+		hotplug.max_cpus_online = 3;
 		pr_info(MPDEC_TAG": Balanced Profile\n");
 	}
 
-	if (input == 3) {
+	if (input == 2) {
 		hotplug.min_cpus_online = 4;
 		hotplug.max_cpus_online = 4;
 		pr_info(MPDEC_TAG": Performance Profile\n");
+	}
+
+	return count;
+}
+
+static ssize_t store_thermal(struct device *dev,
+				struct device_attribute *bricked_hotplug_attrs,
+				const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+
+	hotplug.thermal = input;
+
+	if (input == 1) {
+		pr_info(MPDEC_TAG": Thermal Control Enabled\n");
+	}
+	else {
+		pr_info(MPDEC_TAG": Thermal Control Disabled\n");
 	}
 
 	return count;
@@ -791,6 +807,7 @@ static DEVICE_ATTR(max_cpus_online_susp, 644, show_max_cpus_online_susp, store_m
 static DEVICE_ATTR(suspend_defer_time, 644, show_suspend_defer_time, store_suspend_defer_time);
 static DEVICE_ATTR(enabled, 644, show_bricked_enabled, store_bricked_enabled);
 static DEVICE_ATTR(profile, 644, show_profile, store_profile);
+static DEVICE_ATTR(thermal, 644, show_thermal, store_thermal);
 
 static struct attribute *bricked_hotplug_attrs[] = {
 	&dev_attr_startdelay.attr,
@@ -803,6 +820,7 @@ static struct attribute *bricked_hotplug_attrs[] = {
 	&dev_attr_suspend_defer_time.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_profile.attr,
+	&dev_attr_thermal.attr,
 	&dev_attr_twts_threshold_0.attr,
 	&dev_attr_twts_threshold_1.attr,
 	&dev_attr_twts_threshold_2.attr,
