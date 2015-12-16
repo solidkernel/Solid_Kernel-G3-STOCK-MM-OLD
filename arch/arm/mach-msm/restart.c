@@ -556,6 +556,7 @@ static int __init msm_restart_init(void)
 
 #ifdef CONFIG_LGE_USE_DEFAULT_HARD_RESET
 	register_reboot_notifier(&msm_set_restart_reason_notifier);
+#endif
 
 #ifdef CONFIG_KEXEC_HARDBOOT
 	kexec_hardboot_hook = msm_kexec_hardboot_hook;

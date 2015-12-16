@@ -7409,6 +7409,7 @@ void taiko_dec5_vol_mute(void)
        snd_soc_update_bits(taiko_codec_priv, tx_vol_ctl_reg, 0x01, 0x01);
 }
 EXPORT_SYMBOL(taiko_dec5_vol_mute);
+#endif
 
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
 struct snd_soc_codec *fauxsound_codec_ptr;
