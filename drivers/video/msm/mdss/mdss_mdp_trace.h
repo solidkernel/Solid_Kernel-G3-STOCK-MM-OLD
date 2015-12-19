@@ -17,7 +17,7 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mdss
 #undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH /home/loller79/fun/drivers/video/msm/mdss
+#define TRACE_INCLUDE_PATH /home/loller79/Solid_G3/drivers/video/msm/mdss
 #undef TRACE_INCLUDE_FILE
 #define TRACE_INCLUDE_FILE mdss_mdp_trace
 
