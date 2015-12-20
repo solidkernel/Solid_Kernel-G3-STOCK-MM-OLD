@@ -35,7 +35,7 @@ when       who	  what, where, why
 #define trace(...)             _trace_macro_(INFO, ##__VA_ARGS__)
 
 #ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-#define FIXED_50FPS   50
+#define FIXED_60FPS   60
 #define FIXED_FPS     77
 #define RELEASE_FPS   88
 
@@ -78,7 +78,7 @@ struct platform_driver g3_display_driver = {
 
 static int g3_cur_level = _LV_END_ - 1;
 struct display_opp_table g3_display_opp_table[] = {
-	{LV_0, 50, 0},
+	{LV_0, 60, 0},
 	{LV_1, 60, 0},
 };
 
@@ -260,7 +260,7 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 
 #ifdef CONFIG_MACH_MSM8974_DZNY_DCM
     if (g_fixed_freq == FIXED_FPS)
-        wdfps = FIXED_50FPS;
+        wdfps = FIXED_60FPS;
     else
         wdfps = g3_display_opp_table[val].freq;
 
@@ -275,9 +275,9 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 		return 0;
 	}
 
-	if (wdfps < 50) {
-		pr_err("Unsupported FPS. Configuring to min_fps = 50\n");
-		wdfps = 50;
+	if (wdfps < 60) {
+		pr_err("Unsupported FPS. Configuring to min_fps = 60\n");
+		wdfps = 60;
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else if (wdfps > 60) {
 		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
