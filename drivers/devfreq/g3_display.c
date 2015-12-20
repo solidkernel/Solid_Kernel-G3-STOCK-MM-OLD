@@ -35,7 +35,7 @@ when       who	  what, where, why
 #define trace(...)             _trace_macro_(INFO, ##__VA_ARGS__)
 
 #ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-#define FIXED_50FPS   60
+#define FIXED_50FPS   50
 #define FIXED_FPS     77
 #define RELEASE_FPS   88
 
@@ -277,7 +277,7 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 
 	if (wdfps < 50) {
 		pr_err("Unsupported FPS. Configuring to min_fps = 50\n");
-		wdfps = 60;
+		wdfps = 50;
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else if (wdfps > 60) {
 		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
@@ -285,7 +285,6 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else {
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
-		wdfps = 60;
 	}
 	if (!ret) {
 		pr_debug("%s: configured to '%d' FPS\n", __func__, wdfps);
