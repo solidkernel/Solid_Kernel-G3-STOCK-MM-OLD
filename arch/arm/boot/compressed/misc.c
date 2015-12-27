@@ -21,8 +21,6 @@ unsigned int __machine_arch_type;
 #include <linux/compiler.h>	/* for inline */
 #include <linux/types.h>
 #include <linux/linkage.h>
-#include <asm/setup.h>
-#include <linux/stddef.h>
 
 static void putstr(const char *ptr);
 extern void error(char *x);
@@ -154,4 +152,3 @@ decompress_kernel(unsigned long output_start, unsigned long free_mem_ptr_p,
 	else
 		putstr(" done, booting the kernel.\n");
 }
-
