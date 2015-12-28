@@ -53,10 +53,6 @@
 
 #define pn547_HW_REVISION _IOR(PN547_MAGIC, 0x02, unsigned int)
 
-#ifdef CONFIG_LGE_NFC_USE_PMIC
-#define pn547_CLKS_SET _IOW(PN547_MAGIC, 0x03, unsigned int)
-#endif
-
 struct pn547_i2c_platform_data {
     unsigned int sda_gpio;
     unsigned int scl_gpio;
@@ -95,4 +91,4 @@ struct pn547_gpio {
 #define dprintk(fmt, args...) do { } while (0)
 #endif
 
-#endif /* _PN547_LGE_H_ */
+#endif /*               */

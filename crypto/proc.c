@@ -40,14 +40,7 @@ static struct ctl_table crypto_sysctl_table[] = {
 	},
 	{
 		.procname       = "cc_mode",
-		.data			= &cc_mode,
-		.maxlen         = sizeof(int),
-		.mode           = 0444,
-		.proc_handler   = proc_dointvec
-	},
-	{
-		.procname       = "cc_mode_flag",
-		.data			= &cc_mode_flag,
+		.data			= &fips_enabled, // FIPS and CC modes are the same
 		.maxlen         = sizeof(int),
 		.mode           = 0444,
 		.proc_handler   = proc_dointvec

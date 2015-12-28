@@ -54,46 +54,6 @@
 #include <linux/slimbus/slimbus.h>
 #endif
 
-
-#ifdef CONFIG_LGE_LCD_TUNING
-
-#include "../../../../drivers/video/msm/mdss/mdss_dsi.h"
-int tun_lcd[128];
-
-int lcd_set_values(int *tun_lcd_t)
-{
-	memset(tun_lcd,0,128*sizeof(int));
-	memcpy(tun_lcd,tun_lcd_t,128*sizeof(int));
-	printk("lcd_set_values ::: tun_lcd[0]=[%x], tun_lcd[1]=[%x], tun_lcd[2]=[%x] ......\n"
-			,tun_lcd[0],tun_lcd[1],tun_lcd[2]);
-	return 0;
-}
-static int lcd_get_values(int *tun_lcd_t)
-{
-	memset(tun_lcd_t,0,128*sizeof(int));
-	memcpy(tun_lcd_t,tun_lcd,128*sizeof(int));
-	printk("lcd_get_values\n");
-	return 0;
-}
-
-static struct lcd_platform_data lcd_pdata ={
-	.set_values = lcd_set_values,
-	.get_values = lcd_get_values,
-};
-static struct platform_device lcd_ctrl_device = {
-	.name = "lcd_ctrl",
-	.dev = {
-		.platform_data = &lcd_pdata,
-	}
-};
-
-void __init lge_add_lcd_ctrl_devices(void)
-{
-	platform_device_register(&lcd_ctrl_device);
-}
-#endif
-
-
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -138,11 +98,11 @@ static void __init msm8974_early_memory(void)
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-/* LGE_CHANGE_S, [WiFi][jaewoo.hwang@lge.com], 2013-01-28, Wifi Bring Up */
+/*                                                                       */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 extern void init_bcm_wifi(void);
 #endif
-/* LGE_CHANGE_E, [WiFi][jaewoo.hwang@lge.com], 2013-01-28, Wifi Bring Up */
+/*                                                                       */
 
 void __init msm8974_add_drivers(void)
 {
@@ -151,9 +111,6 @@ void __init msm8974_add_drivers(void)
 	msm_smd_init();
 	msm_rpm_driver_init();
 	msm_pm_sleep_status_init();
-#ifdef CONFIG_LGE_LCD_TUNING
-	lge_add_lcd_ctrl_devices();
-#endif
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
@@ -170,15 +127,15 @@ void __init msm8974_add_drivers(void)
 #ifdef CONFIG_LGE_DIAG_USB_ACCESS_LOCK
 	lge_add_diag_devices();
 #endif
-/* LGE_CHANGE_S, [WiFi][jaewoo.hwang@lge.com], 2013-01-28, Wifi Bring Up */
+/*                                                                       */
 #if defined (CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
 	init_bcm_wifi();
 #endif
-/* LGE_CHANGE_E, [WiFi][jaewoo.hwang@lge.com], 2013-01-28, Wifi Bring Up */
+/*                                                                       */
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 	lge_add_lcd_kcal_devices();
 #endif /* CONFIG_LCD_KCAL */
@@ -229,7 +186,7 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 	{}
 };
 
-/* LGE_CHANGE, yeri.lee@lge.com, 2013-10-31, wm5110 Bring up*/
+/*                                                          */
 #ifdef CONFIG_MFD_WM5110
 static struct slim_device wm5110_slim_audio = {
 	.name = "wm5110-slim-audio",

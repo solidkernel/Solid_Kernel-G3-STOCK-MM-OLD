@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 1999-2015, Broadcom Corporation
+* Copyright (C) 1999-2014, Broadcom Corporation
 * 
 *      Unless you and Broadcom execute a separate written software license
 * agreement governing use of this software, this software is licensed to you
@@ -35,7 +35,7 @@
 #define BUS_RETRIES 1	/* # of retries before aborting a bus tx operation */
 
 /* 16 bits will provide an absolute max of 65536 slots */
-#define WLFC_HANGER_MAXITEMS 3072
+#define WLFC_HANGER_MAXITEMS 1024
 
 #define WLFC_HANGER_ITEM_STATE_FREE			1
 #define WLFC_HANGER_ITEM_STATE_INUSE			2

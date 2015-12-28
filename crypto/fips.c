@@ -15,23 +15,17 @@
 
 // in FIPS kernel build mode, we have sensible default settings
 #ifdef CONFIG_CRYPTO_FIPS
-int cc_mode = 0;
-int cc_mode_flag = 0;
 int fips_enabled = 0;
 int fips_panic = 0;
 int fips_allow_others = 1;
 static u8 fips_ic[SHA1_DIGEST_SIZE];
 #else
-int cc_mode;
-int cc_mode_flag;
 int fips_enabled;
 int fips_panic;
 int fips_allow_others;
 static u8 *fips_ic = NULL;
 #endif
 
-EXPORT_SYMBOL_GPL(cc_mode);
-EXPORT_SYMBOL_GPL(cc_mode_flag);
 EXPORT_SYMBOL_GPL(fips_enabled);
 EXPORT_SYMBOL_GPL(fips_panic);
 EXPORT_SYMBOL_GPL(fips_allow_others);
@@ -41,7 +35,7 @@ EXPORT_SYMBOL_GPL(fips_allow_others);
 // parameter, which also turns FIPS mode on
 int get_cc_mode_state(void)
 {
-	return cc_mode_flag;
+	return fips_enabled;
 }
 EXPORT_SYMBOL_GPL(get_cc_mode_state);
 
@@ -110,17 +104,13 @@ static int fips_enable(char *str)
 
 static int cc_mode_enable(char *str)
 {
-	cc_mode_flag = simple_strtol(str, NULL, 10);
-	cc_mode = cc_mode_flag & 0x01;
-	printk(KERN_INFO "CCMODE: CC mode %s\n",
-		cc_mode ? "enabled" : "disabled");
-	return 1;
+	return fips_enable(str);
 }
 
 static int fips_panic_enable(char *str)
 {
     fips_panic = !!simple_strtol(str, NULL, 0);
-    printk(KERN_INFO "FIPS: panic on test fail %s\n",
+    printk(KERN_INFO "fips panic on test fail: %s\n",
         fips_panic ? "enabled" : "disabled");
     return 1;
 }
@@ -128,7 +118,7 @@ static int fips_panic_enable(char *str)
 static int fips_allow_others_enable(char *str)
 {
     fips_allow_others = !!simple_strtol(str, NULL, 0);
-    printk(KERN_INFO "FIPS: non-FIPS algorithms in FIPS mode %s\n",
+    printk(KERN_INFO "non-fips algorthms in fips mode: %s\n",
         fips_allow_others ? "allowed" : "prohibited");
     return 1;
 }
@@ -137,7 +127,7 @@ static int fips_allow_others_enable(char *str)
 static int fips_ic_set(char *str)
 {
 	int i;
-
+	
 	if (strlen(str) != 2 * SHA1_DIGEST_SIZE) {
 		printk(KERN_ERR "FIPS: invalid integrity check HMAC parameter %s"
 			" (must be %d characters long)\n", str, 2 * SHA1_DIGEST_SIZE);
@@ -147,17 +137,17 @@ static int fips_ic_set(char *str)
 		printk(KERN_INFO "FIPS: FIPS expected integrity check HMAC = ");
 		for (i = 0; i < SHA1_DIGEST_SIZE; i++) {
 			printk(KERN_CONT "%02x", fips_ic[i]);
-		}
+		}	
 	}
-
+	
 	return 1;
 }
 #else
 static int fips_ic_set(char *str)
 {
 	printk(KERN_INFO "FIPS: integrity check argument ignored in non-FIPS kernel\n");
-	return 1;
-}
+ 	return 1;
+ }
 #endif
 
 u8 *fips_ic_expected(void)

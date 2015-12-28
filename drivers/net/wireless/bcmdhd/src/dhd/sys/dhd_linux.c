@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD), Linux-specific network interface
  * Basically selected code segments from usb-cdc.c and usb-rndis.c
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 543294 2015-03-24 06:10:31Z $
+ * $Id: dhd_linux.c 515169 2014-11-13 13:19:49Z $
  */
 
 #include <typedefs.h>
@@ -166,14 +166,7 @@ extern bool ap_fw_loaded;
 #endif /* CUSTOMER_HW4 */
 
 #ifdef ENABLE_ADAPTIVE_SCHED
-//LGE_Patch
-#if defined(CONFIG_MACH_MSM8992_P1) || defined(CONFIG_MACH_MSM8992_PPLUS) || defined(CONFIG_MACH_MSM8992_P1A4WP)
-#define DEFAULT_CPUFREQ_THRESH         800000    /* threshold frequency : 800000 = 800MHz */
-#elif defined(CONFIG_MACH_MSM8992_PPLUS)
-#define DEFAULT_CPUFREQ_THRESH		 800000	/* threshold frequency : 800000 = 800MHz */
-#else
 #define DEFAULT_CPUFREQ_THRESH		1000000	/* threshold frequency : 1000000 = 1GHz */
-#endif
 #ifndef CUSTOM_CPUFREQ_THRESH
 #define CUSTOM_CPUFREQ_THRESH	DEFAULT_CPUFREQ_THRESH
 #endif /* CUSTOM_CPUFREQ_THRESH */
@@ -357,10 +350,6 @@ void custom_rps_map_clear(struct netdev_rx_queue *queue);
 #endif /* CONFIG_MACH_UNIVERSAL5433 */
 #endif /* SET_RPS_CPUS */
 
-#if defined(DHD_DEBUG)
-static void dhd_mem_dump(void *dhd_info, void *event_info, u8 event);
-#endif /* DHD_DEBUG */
-
 static int dhd_reboot_callback(struct notifier_block *this, unsigned long code, void *unused);
 static struct notifier_block dhd_reboot_notifier = {
 		.notifier_call = dhd_reboot_callback,
@@ -439,13 +428,6 @@ struct ipv6_work_info_t {
 	unsigned long		event;
 };
 
-#if defined(DHD_DEBUG)
-typedef struct dhd_dump {
-	uint8 *buf;
-	int bufsize;
-} dhd_dump_t;
-#endif /* DHD_DEBUG */
-
 /* When Perimeter locks are deployed, any blocking calls must be preceeded
  * with a PERIM UNLOCK and followed by a PERIM LOCK.
  * Examples of blocking calls are: schedule_timeout(), down_interruptible(),
@@ -473,7 +455,6 @@ typedef struct dhd_info {
 	htsf_t  htsf;
 #endif
 	wait_queue_head_t ioctl_resp_wait;
-	wait_queue_head_t d3ack_wait;
 	uint32	default_wd_interval;
 
 	struct timer_list timer;
@@ -2778,16 +2759,22 @@ dhd_start_xmit(struct sk_buff *skb, struct net_device *net)
 	if (dhd->pub.tcpack_sup_mode == TCPACK_SUP_HOLD) {
 		/* If this packet has been hold or got freed, just return */
 		if (dhd_tcpack_hold(&dhd->pub, pktbuf, ifidx)) {
-			DHD_PERIM_UNLOCK_TRY(DHD_FWDER_UNIT(dhd), TRUE);
-			DHD_OS_WAKE_UNLOCK(&dhd->pub);
+#ifdef CUSTOMER_HW10
+			ret = BCME_ERROR;
+			goto done;
+#else	
 			return 0;
+#endif
 		}
 	} else {
 		/* If this packet has replaced another packet and got freed, just return */
 		if (dhd_tcpack_suppress(&dhd->pub, pktbuf)) {
-			DHD_PERIM_UNLOCK_TRY(DHD_FWDER_UNIT(dhd), TRUE);
-			DHD_OS_WAKE_UNLOCK(&dhd->pub);
+#ifdef CUSTOMER_HW10
+			ret = BCME_ERROR;
+			goto done;
+#else
 			return 0;
+#endif
 		}
 	}
 #endif /* DHDTCPACK_SUPPRESS */
@@ -4304,7 +4291,7 @@ dhd_stop(struct net_device *net)
 			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
 				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
 				int i;
-				dhd_if_t *ifp;
+
 #if defined(CUSTOMER_HW4) && defined(WL_CFG80211_P2P_DEV_IF)
 				wl_cfg80211_del_p2p_wdev();
 #endif /* CUSTOMER_HW4 && WL_CFG80211_P2P_DEV_IF */
@@ -4312,12 +4299,6 @@ dhd_stop(struct net_device *net)
 				dhd_net_if_lock_local(dhd);
 				for (i = 1; i < DHD_MAX_IFS; i++)
 					dhd_remove_if(&dhd->pub, i, FALSE);
-
-				ifp = dhd->iflist[0];
-				ASSERT(ifp && ifp->net);
-				if (ifp && ifp->net) {
-					dhd_if_del_sta_list(ifp);
-				}
 				dhd_net_if_unlock_local(dhd);
 			}
 		}
@@ -4542,7 +4523,7 @@ dhd_open(struct net_device *net)
 		}
 #ifdef PCIE_FULL_DONGLE
 		dhd_set_scb_probe(&dhd->pub);
-#endif /* PCIE_FULL_DONGLE */
+#endif
 #endif /* WL_CFG80211 */
 	}
 
@@ -5105,7 +5086,6 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 
 	/* Initialize other structure content */
 	init_waitqueue_head(&dhd->ioctl_resp_wait);
-	init_waitqueue_head(&dhd->d3ack_wait);
 	init_waitqueue_head(&dhd->ctrl_wait);
 
 	/* Initialize the spinlocks */
@@ -5252,7 +5232,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 #endif
 #ifdef DHDTCPACK_SUPPRESS
 #ifdef BCMSDIO
-	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_DELAYTX);
+	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_REPLACE);
 #elif defined(BCMPCIE)
 	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_HOLD);
 #else
@@ -5399,8 +5379,6 @@ bool dhd_validate_chipid(dhd_pub_t *dhdp)
 	config_chipid = BCM43349_CHIP_ID;
 #elif defined(BCM4335_CHIP)
 	config_chipid = BCM4335_CHIP_ID;
-#elif defined(BCM43455_CHIP)
-	config_chipid = BCM4345_CHIP_ID;
 #elif defined(BCM43241_CHIP)
 	config_chipid = BCM4324_CHIP_ID;
 #elif defined(BCM4334_CHIP)
@@ -5428,17 +5406,14 @@ bool dhd_validate_chipid(dhd_pub_t *dhdp)
 		return TRUE;
 #endif /* BCM4358_CHIP && SUPPORT_MULTIPLE_REVISION */
 #ifdef CUSTOMER_HW10
-#if defined(BCM4358_CHIP)
-	if (chipid == BCM43569_CHIP_ID && config_chipid == BCM4358_CHIP_ID)
-		return TRUE;
-#elif defined(BCM4356_CHIP)
+#if defined(BCM4356_CHIP)
 	if (chipid == BCM4354_CHIP_ID && config_chipid == BCM4356_CHIP_ID)
 		return TRUE;
 #elif defined(BCM4354_CHIP)
 	if (chipid == BCM4356_CHIP_ID && config_chipid == BCM4354_CHIP_ID)
 		return TRUE;
 #endif
-#endif /* CUSTOMER_HW10 */
+#endif
 
 	return config_chipid == chipid;
 }
@@ -5952,6 +5927,7 @@ static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 		struct ether_addr ea;
 		char buf[32];
 		uint iovlen;
+		int ret;
 
 		bcm_ether_atoe(value, &ea);
 
@@ -6923,7 +6899,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("ampdu_tid", (char *)&tid, sizeof(tid), iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif
-
 #if defined(SOFTAP_TPUT_ENHANCE)
 	set_softap_params(dhd);
 #endif /* SOFTAP_TPUT_ENHANCE */
@@ -7610,7 +7585,8 @@ void dhd_detach(dhd_pub_t *dhdp)
 
 		/*  delete primary interface 0 */
 		ifp = dhd->iflist[0];
-		ASSERT(ifp && ifp->net);
+		ASSERT(ifp);
+		ASSERT(ifp->net);
 		if (ifp && ifp->net) {
 
 
@@ -7752,11 +7728,6 @@ dhd_free(dhd_pub_t *dhdp)
 		dhd_sta_pool_fini(dhdp, DHD_MAX_STA);
 
 		dhd = (dhd_info_t *)dhdp->info;
-		if (dhdp->soc_ram) {
-			MFREE(dhdp->osh, dhdp->soc_ram, dhdp->soc_ram_length);
-			dhdp->soc_ram = NULL;
-		}
-
 		/* If pointer is allocated by dhd_os_prealloc then avoid MFREE */
 		if (dhd &&
 			dhd != (dhd_info_t *)dhd_os_prealloc(dhdp, DHD_PREALLOC_DHD_INFO, 0, FALSE))
@@ -7789,11 +7760,6 @@ dhd_clear(dhd_pub_t *dhdp)
 		}
 
 		dhd_sta_pool_clear(dhdp, DHD_MAX_STA);
-
-		if (dhdp->soc_ram) {
-			MFREE(dhdp->osh, dhdp->soc_ram, dhdp->soc_ram_length);
-			dhdp->soc_ram = NULL;
-		}
 	}
 }
 
@@ -7961,37 +7927,6 @@ dhd_os_ioctl_resp_wake(dhd_pub_t *pub)
 	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
 
 	wake_up(&dhd->ioctl_resp_wait);
-	return 0;
-}
-
-int
-dhd_os_d3ack_wait(dhd_pub_t *pub, uint *condition, bool *pending)
-{
-	dhd_info_t * dhd = (dhd_info_t *)(pub->info);
-	int timeout;
-
-	/* Convert timeout in millsecond to jiffies */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-	timeout = msecs_to_jiffies(dhd_ioctl_timeout_msec);
-#else
-	timeout = dhd_ioctl_timeout_msec * HZ / 1000;
-#endif
-
-	DHD_PERIM_UNLOCK(pub);
-
-	timeout = wait_event_timeout(dhd->d3ack_wait, (*condition), timeout);
-
-	DHD_PERIM_LOCK(pub);
-
-	return timeout;
-}
-
-int
-dhd_os_d3ack_wake(dhd_pub_t *pub)
-{
-	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
-
-	wake_up(&dhd->d3ack_wait);
 	return 0;
 }
 
@@ -8239,11 +8174,7 @@ dhd_wl_host_event(dhd_info_t *dhd, int *ifidx, void *pktdata,
 		bcmerror = wl_host_event(&dhd->pub, ifidx, pktdata, event, data, NULL);
 #endif /* SHOW_LOGTRACE */
 
-#ifdef CUSTOMER_HW10
-	if (!dhd->pub.up || bcmerror != BCME_OK)
-#else
 	if (bcmerror != BCME_OK)
-#endif
 		return (bcmerror);
 
 #if defined(WL_WIRELESS_EXT)
@@ -8800,15 +8731,6 @@ dhd_dev_pno_set_for_hotlist(struct net_device *dev, wl_pfn_bssid_t *p_pfn_bssid,
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
 	return (dhd_pno_set_for_hotlist(&dhd->pub, p_pfn_bssid, hotlist_params));
 }
-#ifdef LPS_SUPPORT
-/* Linux wrapper to call common dhd_pno_stop_for_hotlist */
-int
-dhd_dev_pno_stop_for_hotlist(struct net_device *dev)
-{
-	dhd_info_t *dhd = DHD_DEV_INFO(dev);
-	return (dhd_pno_stop_for_hotlist(&dhd->pub));
-}
-#endif	/* LPS_SUPPORT */
 /* Linux wrapper to call common dhd_dev_pno_stop_for_batch */
 int
 dhd_dev_pno_stop_for_batch(struct net_device *dev)
@@ -9278,14 +9200,8 @@ write_to_file(dhd_pub_t *dhd, uint8 *buf, int size)
 	set_fs(KERNEL_DS);
 
 	/* open file to write */
-#if defined(CUSTOMER_HW5) || defined(CUSTOMER_HW4)
-	fp = filp_open("/data/mem_dump", O_WRONLY|O_CREAT, 0640);
-#else
 	fp = filp_open("/tmp/mem_dump", O_WRONLY|O_CREAT, 0640);
-#endif /* CUSTOMER_HW5 || CUSTOMER_HW4 */
-
-	if (IS_ERR(fp)) {
-		fp = NULL;
+	if (!fp) {
 		printf("%s: open file error\n", __FUNCTION__);
 		ret = -1;
 		goto exit;
@@ -9293,13 +9209,10 @@ write_to_file(dhd_pub_t *dhd, uint8 *buf, int size)
 
 	/* Write buf to file */
 	fp->f_op->write(fp, buf, size, &pos);
-	fp->f_op->fsync(fp, 0, size-1, 1);
 
 exit:
 	/* free buf before return */
-	if (buf) {
-		MFREE(dhd->osh, buf, size);
-	}
+	MFREE(dhd->osh, buf, size);
 	/* close file before return */
 	if (fp)
 		filp_close(fp, current->files);
@@ -9548,7 +9461,7 @@ int dhd_os_wd_wake_lock(dhd_pub_t *pub)
 	return ret;
 #else
 	return 0;
-#endif /* !defined(PCIE_FULL_DONGLE) */
+#endif /* !defined(CUSTOMER_HW10) && !defined(PCIE_FULL_DONGLE) */
 }
 
 int dhd_os_wd_wake_unlock(dhd_pub_t *pub)
@@ -9571,7 +9484,7 @@ int dhd_os_wd_wake_unlock(dhd_pub_t *pub)
 	return ret;
 #else
 	return 0;
-#endif /* !defined(PCIE_FULL_DONGLE) */
+#endif /* !defined(CUSTOMER_HW10) && !defined(PCIE_FULL_DONGLE) */
 }
 
 #ifdef BCMPCIE_OOB_HOST_WAKE
@@ -10350,33 +10263,6 @@ int dhd_set_ap_isolate(dhd_pub_t *dhdp, uint32 idx, int val)
 
 	return 0;
 }
-
-#if defined(DHD_DEBUG)
-void dhd_schedule_memdump(dhd_pub_t *dhdp, uint8 *buf, uint32 size)
-{
-	dhd_dump_t *dump = NULL;
-	dump = MALLOC(dhdp->osh, sizeof(dhd_dump_t));
-	dump->buf = buf;
-	dump->bufsize = size;
-	dhd_deferred_schedule_work(dhdp->info->dhd_deferred_wq, (void *)dump,
-		DHD_WQ_WORK_SOC_RAM_DUMP, dhd_mem_dump, DHD_WORK_PRIORITY_HIGH);
-}
-
-static void
-dhd_mem_dump(void *handle, void *event_info, u8 event)
-{
-	dhd_info_t *dhd = handle;
-	dhd_dump_t *dump = event_info;
-
-	if (!dhd || !dump)
-		return;
-
-	if (write_to_file(&dhd->pub, dump->buf, dump->bufsize)) {
-		DHD_ERROR(("%s: writing SoC_RAM dump to the file failed\n", __FUNCTION__));
-	}
-	MFREE(dhd->pub.osh, dump, sizeof(dhd_dump_t));
-}
-#endif /* DHD_DEBUG */
 
 #ifdef DHD_WMF
 /* Returns interface specific WMF configuration */

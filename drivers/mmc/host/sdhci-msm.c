@@ -43,10 +43,10 @@
 #include <linux/iopoll.h>
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2014-03-19, B2-BSP-FS@lge.com
+/*           
+                                                    
+                                              
+                                
  */
 #include <linux/debugfs.h>
 #endif
@@ -110,9 +110,6 @@ enum sdc_mpm_pin_state {
 #define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
 #define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
 
-#define CORE_VENDOR_SPEC_FUNC2 0x110
-#define CORE_ONE_MID_EN     (1 << 25)
-
 #define CORE_CSR_CDC_CTLR_CFG0		0x130
 #define CORE_SW_TRIG_FULL_CALIB		(1 << 16)
 #define CORE_HW_AUTOCAL_ENA		(1 << 17)
@@ -154,9 +151,6 @@ enum sdc_mpm_pin_state {
 
 #define CORE_MCI_VERSION	0x050
 #define CORE_VERSION_310	0x10000011
-#define CORE_VERSION_MAJOR_MASK		0xF0000000
-#define CORE_VERSION_MAJOR_SHIFT	28
-#define CORE_VERSION_TARGET_MASK	0x000000FF
 
 /*
  * Waiting until end of potential AHB access for data:
@@ -366,10 +360,10 @@ enum vdd_io_level {
 	VDD_IO_SET_LEVEL,
 };
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user build image
- * 2014-03-19, B2-BSP-FS@lge.com
+/*           
+                                                    
+                                              
+                                
  */
 static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
 #endif
@@ -1113,8 +1107,8 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	if (of_get_property(np, prop_name, NULL))
 		vreg->lpm_sup = true;
 
-    /* Bohyun, Jung (D3-5T-FS@lge.com)
-       Because lpm_sup is defined on common dtsi, add attribute 'disable' for g3 global for minimum change. */
+    /*                                
+                                                                                                            */
 	prop = of_get_property(np, prop_name, &len);
     if (prop != NULL && len >0 && of_compat_cmp((const char*)prop, "disable", strlen("disable")) == 0)
         vreg->lpm_sup = false;
@@ -2225,9 +2219,9 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	bool done = false;
 
 #ifdef CONFIG_LGE_MMC_SD_USE_SDCC3
-/* LGE_CHANGE
- * Handle I/O voltage switch here if this request is for SDC3.
- * 2014-01-23, B2-BSP-FS@lge.com
+/*           
+                                                              
+                                
  */
 	if (strcmp(host->hw_name, "msm_sdcc.3") == 0) {
 		if (req_type == REQ_IO_HIGH) {
@@ -2811,32 +2805,6 @@ static int sdhci_msm_cfg_mpm_pin_wakeup(struct sdhci_host *host, unsigned mode)
 	return ret;
 }
 
-#ifdef CONFIG_MACH_LGE
-/*
- * Enable one MID mode for SDCC5 (major 1) on 8974 (minor 0x11), on 8916/8939 (minor 0x2e) and
- * on 8992 (minor 0x3e) as a workaround to reset for data stuck issue.
- */
-static void sdhci_enable_one_MID_mode(struct sdhci_msm_host *msm_host, struct sdhci_host *host)
-{
-	u32 version;
-	u16 minor;
-	u8 major;
-	u32 val;
-
-	version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
-	major = (version & CORE_VERSION_MAJOR_MASK) >>
-			CORE_VERSION_MAJOR_SHIFT;
-	minor = version & CORE_VERSION_TARGET_MASK;
-
-	if (major == 1 && (minor == 0x11 || minor == 0x2e || minor == 0x3e)) {
-		host->quirks2 |= SDHCI_QUIRK2_USE_RESET_WORKAROUND;
-		val = readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC_FUNC2);
-		writel_relaxed((val | CORE_ONE_MID_EN),
-			host->ioaddr + CORE_VENDOR_SPEC_FUNC2);
-	}
-}
-#endif
-
 static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3009,10 +2977,6 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_HC_MODE) |
 			FF_CLK_SW_RST_DIS, msm_host->core_mem + CORE_HC_MODE);
 
-#ifdef CONFIG_MACH_LGE
-	sdhci_enable_one_MID_mode(msm_host, host);
-#endif
-
 	/*
 	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
 	 * was either BUS_ON or IO_HIGH_V. So before we enable the power irq
@@ -3121,19 +3085,17 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
-#ifndef CONFIG_MACH_LGE
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
-#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_PM;
 #ifdef CONFIG_MACH_LGE
 #if defined (CONFIG_LGE_MMC_BKOPS_ENABLE) && defined(CONFIG_MMC_SDHCI_MSM)
-	/* LGE_CHANGE
-	 * Enable BKOPS feature since it has been disabled by default.
-	 * If you want to use bkops, you have to set Y in kernel/arch/arm/configs/XXXX_defconfig file.
-	 * 2014-01-16, B2-BSP-FS@lge.com
-	 */
+	/*           
+                                                               
+                                                                                               
+                                 
+  */
 	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 #endif
 #endif
@@ -3230,10 +3192,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	device_enable_async_suspend(&pdev->dev);
 	/* Successful initialization */
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2014-03-19, B2-BSP-FS@lge.com
+/*           
+                                                    
+                                        
+                                
  */
     msmsdhci_dbg_createhost(msm_host);
 #endif
@@ -3523,10 +3485,10 @@ module_platform_driver(sdhci_msm_driver);
 MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
-/* LGE_CHANGE
- * For adjustable drive strength value on user level
- * but, it doesn't operate in user image
- * 2014-03-19, B2-BSP-FS@lge.com
+/*           
+                                                    
+                                        
+                                
  */
 static int gpio_to_value(int cfg)
 {

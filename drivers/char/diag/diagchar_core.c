@@ -304,12 +304,10 @@ static int diagchar_close(struct inode *inode, struct file *file)
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
-		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = USB_MODE;
-		diag_ws_reset();
-		mutex_unlock(&driver->diagchar_mutex);
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 		diagfwd_connect();
+		diag_ws_reset();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
 		diagfwd_cancel_hsic(REOPEN_HSIC);
@@ -915,7 +913,6 @@ int diag_switch_logging(unsigned long ioarg)
 				pr_err("socket process, status: %d\n",
 					status);
 			}
-			driver->socket_process = NULL;
 		}
 	} else if (driver->logging_mode == SOCKET_MODE) {
 		driver->socket_process = current;
@@ -1274,15 +1271,9 @@ drop:
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
 						*(data->buf_in_1),
 						data->write_ptr_1->length);
-					diag_ws_on_copy();
-					copy_data = 1;
 					data->in_busy_1 = 0;
 				}
 			}
-		}
-		if (!copy_data) {
-			diag_ws_on_copy();
-			copy_data = 1;
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* copy 9K data over SDIO */
@@ -1447,7 +1438,6 @@ drop:
 exit:
 	mutex_unlock(&driver->diagchar_mutex);
 	if (copy_data) {
-		diag_ws_on_copy_complete();
 		/*
 		 * Flush any work that is currently pending on the data
 		 * channels. This will ensure that the next read is not
@@ -1456,6 +1446,7 @@ exit:
 		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
 			flush_workqueue(driver->smd_data[i].wq);
 		wake_up(&driver->smd_wait_q);
+		diag_ws_on_copy_complete();
 	}
 
 #ifdef CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT
@@ -2157,7 +2148,7 @@ inline void diagfwd_bridge_fn(int type) { }
 
 #ifdef CONFIG_LGE_DIAG_USB_ACCESS_LOCK
 int user_diag_enable;
-#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US) && !defined(CONFIG_MACH_MSM8974_G2_SPR)
+#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US)
 #define DIAG_ENABLE	1
 #define DIAG_DISABLE	0
 #endif
@@ -2187,7 +2178,7 @@ static ssize_t write_diag_enable(struct device *dev,
 	{
 		user_diag_enable = 1;
 	}
-#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US) && !defined(CONFIG_MACH_MSM8974_G2_SPR)
+#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US)
 	if(lge_get_factory_boot()) {
 		printk("[FACTORY] force to diag enable, factory mode\n");
 		user_diag_enable = DIAG_ENABLE;
@@ -2211,7 +2202,7 @@ int lg_diag_create_file(struct platform_device *pdev)
     return ret;
 }
 
-#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US) && !defined(CONFIG_MACH_MSM8974_G2_SPR)
+#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && !defined(CONFIG_MACH_MSM8974_G3_SPR_US)
 int get_diag_enable(void)
 {
 	if (lge_get_factory_boot())

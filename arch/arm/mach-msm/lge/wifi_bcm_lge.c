@@ -35,7 +35,8 @@
 	|| defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_SPR) \
 	|| defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined(CONFIG_MACH_MSM8974_G2_OPEN_AME) \
 	|| defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_TIGERS_KR) \
-	|| defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_Z_CN) || defined(CONFIG_MACH_MSM8974_Z_OPEN_COM) || defined(CONFIG_MACH_MSM8974_Z_CA)
+	|| defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_Z_CN) || defined(CONFIG_MACH_MSM8974_Z_OPEN_COM) || defined(CONFIG_MACH_MSM8974_Z_CA) \
+	|| defined(CONFIG_MACH_MSM8974_TIGERS)
 // G2 or Z or G3A
 #define WLAN_POWER	26
 #define WLAN_HOSTWAKE	44
@@ -72,7 +73,7 @@ static int lock_cookie_wifi = 'W' | 'i'<<8 | 'F'<<16 | 'i'<<24; /* cookie is "Wi
 */
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 
-#define PREALLOC_WLAN_NUMBER_OF_SECTIONS	12
+#define PREALLOC_WLAN_NUMBER_OF_SECTIONS	11
 #define PREALLOC_WLAN_NUMBER_OF_BUFFERS		160
 #define PREALLOC_WLAN_SECTION_HEADER		24
 
@@ -130,11 +131,6 @@ static struct sk_buff *wlan_static_skb[WLAN_SKB_BUF_NUM];
 #define WLAN_SECTION_SIZE_9		(18 * 1024) // 16338
 #define WLAN_SECTION_SIZE_10		(32 * 1024)
 #endif
-#ifdef CONFIG_BCMDHD_SDIO
-#define WLAN_SECTION_SIZE_11		(73760)	/* sizeof(WLFC_HANGER_SIZE(3072)) */
-#else
-#define WLAN_SECTION_SIZE_11		0
-#endif
 
 struct wlan_mem_prealloc {
 	void *mem_ptr;
@@ -152,8 +148,7 @@ static struct wlan_mem_prealloc wlan_mem_array[PREALLOC_WLAN_NUMBER_OF_SECTIONS]
 	{ NULL, (WLAN_SECTION_SIZE_7) },
 	{ NULL, (WLAN_SECTION_SIZE_8) },
 	{ NULL, (WLAN_SECTION_SIZE_9) },
-	{ NULL, (WLAN_SECTION_SIZE_10) },
-	{ NULL, (WLAN_SECTION_SIZE_11) }
+	{ NULL, (WLAN_SECTION_SIZE_10) }
 };
 
 static void *bcm_wlan_get_mem(int section, unsigned long size)
@@ -575,7 +570,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 	{"IN", "IN", 3},
 	{"ID", "ID", 1},
 	{"IE", "IE", 5},
-	{"IL", "IL", 7},
+	{"IL", "BO", 0},    /* IL/7 -> BO/0 */
 	{"IT", "IT", 4},
 #if defined(CONFIG_MACH_MSM8974_G2_DCM)
 	{"JP", "JP", 45},
@@ -764,7 +759,7 @@ const struct cntry_locales_custom bcm_wifi_translate_custom_table[] = {
 	{"HU", "HU", 4},
 	{"ID", "ID", 1},
 	{"IE", "IE", 5},
-	{"IL", "IL", 7},
+	{"IL", "BO", 0},
 	{"IN", "IN", 3},
 	{"IQ", "IQ", 0},
 	{"IS", "IS", 4},

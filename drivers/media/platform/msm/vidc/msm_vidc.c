@@ -790,10 +790,10 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 				&buffer_info);
 #ifdef CONFIG_MACH_LGE
 		/*
-		* LGE_CHANGE
-		* When buffer linked list has abnormal values, exit for loop and error value return
-		* 2014-02-17, jinny.park@lge.com
-		*/
+              
+                                                                                     
+                                  
+  */
 		if (rc) {
 			dprintk(VIDC_ERR,
 			"Failed Release buffer: %d, %d, %d\n",
@@ -1378,7 +1378,7 @@ int msm_vidc_close(void *instance)
 	int rc = 0;
 	int i;
 
-	if (!inst || !inst->core)
+	if (!inst)
 		return -EINVAL;
 
 	v4l2_fh_del(&inst->event_handler);
@@ -1396,8 +1396,6 @@ int msm_vidc_close(void *instance)
 	}
 
 	core = inst->core;
-	msm_comm_session_clean(inst);
-
 	mutex_lock(&core->lock);
 	list_for_each_safe(ptr, next, &core->instances) {
 		temp = list_entry(ptr, struct msm_vidc_inst, list);
