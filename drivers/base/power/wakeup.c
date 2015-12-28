@@ -380,13 +380,12 @@ EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
  */
 static void wakeup_source_activate(struct wakeup_source *ws)
 {
+	unsigned int cec;
 	/*
 	 * active wakeup source should bring the system
 	 * out of PM_SUSPEND_FREEZE state
 	 */
 	freeze_wake();
-
-	unsigned int cec;
 
 	ws->active = true;
 	ws->active_count++;
