@@ -46,10 +46,6 @@
 #include <mach/board_lge.h>
 #endif
 
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-#include <linux/power/lge_battery_id.h>
-#include <mach/msm_smsm.h>
-
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 static struct cpufreq_frequency_table *dts_freq_table;
 #endif
