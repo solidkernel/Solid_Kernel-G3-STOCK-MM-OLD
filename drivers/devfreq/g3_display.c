@@ -15,7 +15,7 @@ Copyright(c) 2013 by LG Electronics. All Rights Reserved.
   This section contains comments describing changes made to this file.
   Notice that changes are listed in reverse chronological order.
 
-when       who     	  what, where, why
+when       who	  what, where, why
 --------   --------   -------------------------------------------------------
 12/01/13   sdkim   Created file
 ======================================================-====================*/
@@ -70,7 +70,7 @@ struct platform_driver g3_display_driver = {
 
 static int g3_cur_level = _LV_END_ - 1;
 struct display_opp_table g3_display_opp_table[] = {
-	{LV_0, 50, 0},
+	{LV_0, 60, 0},
 	{LV_1, 60, 0},
 };
 
@@ -236,10 +236,10 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 	struct msm_fb_data_type* mfd = fbi_list[0]->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
-	trace("send_event_to_mdss_display, val=%lu, freq=%lu\n", val, g3_display_opp_table[val].freq);
+	pr_debug("send_event_to_mdss_display, val=%lu, freq=%lu\n", val, g3_display_opp_table[val].freq);
 
-	if (!ctl || !(ctl->power_on)) {
-		trace("Panel is off...FPS will not be changed\n");
+	if (!ctl || !(ctl->power_on) || !(mfd->panel_power_on)) {
+		pr_err("Panel is off...FPS will not be changed\n");
 		return -EPERM;
 	}
 	if(ctl->play_cnt==0) {
@@ -249,16 +249,18 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	mutex_lock(&mdp5_data->dfps_lock);
+
 	wdfps = g3_display_opp_table[val].freq;
+
 	if (wdfps == pdata->panel_info.mipi.frame_rate) {
 		pr_debug("%s: FPS is already %d\n", __func__, wdfps);
 		mutex_unlock(&mdp5_data->dfps_lock);
 		return 0;
 	}
 
-	if (wdfps < 38) {
-		pr_err("Unsupported FPS. Configuring to min_fps = 30\n");
-		wdfps = 38;
+	if (wdfps < 60) {
+		pr_err("Unsupported FPS. Configuring to min_fps = 60\n");
+		wdfps = 60;
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else if (wdfps > 60) {
 		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
@@ -268,7 +270,7 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	}
 	if (!ret) {
-		trace("%s: configured to '%d' FPS\n", __func__, wdfps);
+		pr_debug("%s: configured to '%d' FPS\n", __func__, wdfps);
 	} else {
 		pr_err("Failed to configure '%d' FPS. ret = %d\n", wdfps, ret);
 		mutex_unlock(&mdp5_data->dfps_lock);
