@@ -46,15 +46,42 @@ struct qpnp_vib {
 	u16 base;
 	int state;
 	int vtg_level;
-	int timeout;
-	struct mutex lock;
+
 #ifdef CONFIG_VIBRATOR_PM8941_HAPTIC
 	int vtg_haptic_level;
 #endif
+
+	int timeout;
+	struct mutex lock;
 };
 
-struct qpnp_vib *vib_dev;
-EXPORT_SYMBOL(vib_dev);
+static struct qpnp_vib *vib_dev;
+
+#ifdef CONFIG_VIBRATOR_PM8941_HAPTIC
+static int qpnp_vib_set_level(struct timed_output_dev *dev, int data)
+{
+
+	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib, timed_dev);
+
+    if (data <= QPNP_VIB_MAX_LEVEL)
+		{
+			vib->vtg_haptic_level = data;
+			return 1;
+		} else {
+		    vib->vtg_haptic_level = QPNP_VIB_MAX_LEVEL;
+	    }
+
+	return 0;
+}
+
+static int qpnp_vib_get_level(struct timed_output_dev *dev)
+{
+	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib, timed_dev);
+
+	return vib->vtg_level;
+
+}
+#endif
 
 static int qpnp_vib_read_u8(struct qpnp_vib *vib, u8 *data, u16 reg)
 {
@@ -129,7 +156,7 @@ int qpnp_vibrator_config(struct qpnp_vib_config *vib_cfg)
 }
 EXPORT_SYMBOL(qpnp_vibrator_config);
 
-int qpnp_vib_set(struct qpnp_vib *vib, int on)
+static int qpnp_vib_set(struct qpnp_vib *vib, int on)
 {
 	int rc;
 	u8 val;
@@ -159,66 +186,6 @@ int qpnp_vib_set(struct qpnp_vib *vib, int on)
 
 	return rc;
 }
-EXPORT_SYMBOL(qpnp_vib_set);
-
-#ifdef CONFIG_VIBRATOR_PM8941_HAPTIC
-static int qpnp_vib_set_level(struct timed_output_dev *dev, int data)
-{
-    struct qpnp_vib *vib = container_of(dev, struct qpnp_vib, timed_dev);
-
-    if (data <= QPNP_VIB_MAX_LEVEL)
-        vib->vtg_haptic_level = data;
-    else
-	vib->vtg_haptic_level = QPNP_VIB_MAX_LEVEL;
-
-    return 0;
-}
-
-static int qpnp_vib_get_level(struct timed_output_dev *dev)
-{
-    struct qpnp_vib *vib = container_of(dev, struct qpnp_vib, timed_dev);
-    return vib->vtg_level;
-}
-#endif
-
-#ifdef CONFIG_TSPDRV_PMIC_VIBRATOR
-/* Begin Immersion changes */
-int qpnp_vib_set_with_vtglevel(struct qpnp_vib *vib, int vtglevel, int on)
-{
-	int rc;
-	u8 val;
-
-	if(vtglevel < QPNP_VIB_MIN_LEVEL) vtglevel = QPNP_VIB_MIN_LEVEL;
-	if(vtglevel > QPNP_VIB_MAX_LEVEL) vtglevel = QPNP_VIB_MAX_LEVEL;
-
-	if (on) {
-		val = vib->reg_vtg_ctl;
-		val &= ~QPNP_VIB_VTG_SET_MASK;
-		val |= (vtglevel & QPNP_VIB_VTG_SET_MASK);
-		rc = qpnp_vib_write_u8(vib, &val, QPNP_VIB_VTG_CTL(vib->base));
-		if (rc < 0)
-			return rc;
-		vib->reg_vtg_ctl = val;
-		val = vib->reg_en_ctl;
-		val |= QPNP_VIB_EN;
-		rc = qpnp_vib_write_u8(vib, &val, QPNP_VIB_EN_CTL(vib->base));
-		if (rc < 0)
-			return rc;
-		vib->reg_en_ctl = val;
-	} else {
-		val = vib->reg_en_ctl;
-		val &= ~QPNP_VIB_EN;
-		rc = qpnp_vib_write_u8(vib, &val, QPNP_VIB_EN_CTL(vib->base));
-		if (rc < 0)
-			return rc;
-		vib->reg_en_ctl = val;
-	}
-
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_vib_set_with_vtglevel);
-/* End Immersion changes */
-#endif
 
 static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 {
@@ -228,7 +195,7 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 	mutex_lock(&vib->lock);
 	hrtimer_cancel(&vib->vib_timer);
 
-	if (value == 0)
+	if (value == 0 || vib->vtg_haptic_level == 0)
 		vib->state = 0;
 	else {
 		value = (value > vib->timeout ?
@@ -238,6 +205,7 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 #ifdef CONFIG_VIBRATOR_PM8941_HAPTIC
 		vib->vtg_level = vib->vtg_haptic_level;
 #endif
+
 		hrtimer_start(&vib->vib_timer,
 			      ktime_set(value / 1000, (value % 1000) * 1000000),
 			      HRTIMER_MODE_REL);
@@ -329,7 +297,7 @@ static int __devinit qpnp_vibrator_probe(struct spmi_device *spmi)
 	vib->vtg_level /= 100;
 
 #ifdef CONFIG_VIBRATOR_PM8941_HAPTIC
-	vib->vtg_haptic_level = vib->vtg_level;
+    vib->vtg_haptic_level = QPNP_VIB_MAX_LEVEL;
 #endif
 
 	vib_resource = spmi_get_resource(spmi, 0, IORESOURCE_MEM, 0);

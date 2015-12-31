@@ -368,7 +368,6 @@ static const char fsg_string_interface[] = "Mass Storage";
  */
 #define SUB_ACK_STATUS_MUL      0x07
 #endif
-#define SUB_ACK_STATUS_MIDI     0x08
 
 #endif /* CONFIG_USB_G_LGE_ANDROID_AUTORUN */
 
@@ -404,7 +403,7 @@ static char *envp_mode[][2] = {
 	{"AUTORUN=device_info", NULL},
 };
 #endif
-#ifdef CONFIG_DWC3_MSM_BC_12_VZW_SUPPORT
+#ifdef CONFIG_USB_G_LGE_ANDROID_AUTORUN_VZW
 static char *usb_drv_envp_mode[][2] = {
 	{"USB_DRV=uninstalled", NULL},
 	{"USB_DRV=installed", NULL},
@@ -444,7 +443,6 @@ enum check_mode_state {
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	ACK_STATUS_MUL = SUB_ACK_STATUS_MUL,
 #endif
-	ACK_STATUS_MIDI = SUB_ACK_STATUS_MIDI,
 	ACK_STATUS_ERR,
 };
 
@@ -3338,6 +3336,7 @@ static ssize_t fsg_store_usbmode(struct device *dev,
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
+static DEVICE_ATTR(cdrom, 0644, fsg_show_cdrom, fsg_store_cdrom);
 #ifdef CONFIG_USB_MSC_PROFILING
 static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
 #endif
@@ -3457,6 +3456,9 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		if (rc)
 			goto error_luns;
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
+		if (rc)
+			goto error_luns;
+		rc = device_create_file(&curlun->dev, &dev_attr_cdrom);
 		if (rc)
 			goto error_luns;
 #ifdef CONFIG_USB_MSC_PROFILING
@@ -3615,6 +3617,7 @@ static void fsg_common_release(struct kref *ref)
 #ifdef CONFIG_USB_MSC_PROFILING
 			device_remove_file(&lun->dev, &dev_attr_perf);
 #endif
+			device_remove_file(&lun->dev, &dev_attr_cdrom);
 			device_remove_file(&lun->dev, &dev_attr_nofua);
 			device_remove_file(&lun->dev, &dev_attr_ro);
 			device_remove_file(&lun->dev, &dev_attr_file);

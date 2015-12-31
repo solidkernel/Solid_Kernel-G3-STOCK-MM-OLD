@@ -17,7 +17,6 @@
 
 struct anx7816_platform_data
 {
-	bool check_slimport_connection;
 	int gpio_p_dwn;
 	int gpio_reset;
 	int gpio_int;

@@ -39,6 +39,10 @@
 
 #include <mach/board_lge.h>
 
+#ifdef CONFIG_LGE_NFC_USE_PMIC
+#include <linux/clk.h>
+#endif
+
 #define PN547_MAGIC	0xE9
 
 #define PN547_DRV_NAME	"pn547"
@@ -52,10 +56,6 @@
 #define pn547_SET_PWR	_IOW(PN547_MAGIC, 0x01, unsigned int)
 
 #define pn547_HW_REVISION _IOR(PN547_MAGIC, 0x02, unsigned int)
-
-#ifdef CONFIG_LGE_NFC_USE_PMIC
-#define pn547_CLKS_SET _IOW(PN547_MAGIC, 0x03, unsigned int)
-#endif
 
 struct pn547_i2c_platform_data {
     unsigned int sda_gpio;
@@ -77,6 +77,7 @@ struct pn547_dev {
     struct clk			*clk_cont;
     struct clk			*clk_pin;
 #endif
+    unsigned int        count_irq;
     bool            irq_enabled;
     spinlock_t      irq_enabled_lock;
 };
@@ -92,7 +93,7 @@ struct pn547_gpio {
 #if defined(CONFIG_LGE_NFC_DEBUG_MESSAGE)
 #define dprintk(fmt, args...) printk(fmt, ##args)
 #else
-#define dprintk(fmt, args...) do { } while (0)
+#define dprintk(fmt, args...) do{ } while(0)
 #endif
 
 #endif /* _PN547_LGE_H_ */

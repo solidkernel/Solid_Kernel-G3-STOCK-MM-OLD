@@ -42,16 +42,6 @@
 /* in drivers/staging/android */
 #include "ram_console.h"
 
-#if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-   * change code for LCD KCAL
-   * 2013-05-08, seojin.lee@lge.com
-   */
-#include <linux/module.h>
-#include "../../../../drivers/video/msm/mdss/mdss_fb.h"
-extern int update_preset_lcdc_lut(void);
-#endif /* CONFIG_LCD_KCAL */
-
 static int cn_arr_len = 3;
 
 struct cn_prop {
@@ -98,15 +88,15 @@ int __init lge_init_dt_scan_chosen(unsigned long node, const char *uname,
 			continue;
 		if (type == CELL_U32) {
 			u32 = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			if (u32 != NULL)
+			if(u32 != NULL)
 				cn_array[i].cell_u32 = of_read_ulong(u32, 1);
 		} else if (type == CELL_U64) {
 			u32 = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			if (u32 != NULL)
+			if(u32 != NULL)
 				cn_array[i].cell_u64 = of_read_number(u32, 2);
 		} else {
 			p = of_get_flat_dt_prop(node, cn_array[i].name, &len);
-			if (p != NULL)
+			if(p != NULL)
 				strlcpy(cn_array[i].str, p, len);
 		}
 		cn_array[i].is_valid = 1;
@@ -273,7 +263,7 @@ static bool cable_type_defined;
 static struct chg_cable_info_table pm8941_acc_cable_type_data[MAX_CABLE_NUM];
 #endif
 /* END : janghyun.baek@lge.com 2012-12-26 */
-#ifdef CONFIG_LGE_DIAG_USB_ACCESS_LOCK
+#ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
 static struct platform_device lg_diag_cmd_device = {
 	.name = "lg_diag_cmd",
 	.id = -1,
@@ -365,17 +355,7 @@ int lge_pm_get_cable_info(struct qpnp_vadc_chip *vadc,
 	}
 
 	for (i = 0; i < count; i++) {
-		/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
-#ifdef CONFIG_ADC_READY_CHECK_JB
-		rc = qpnp_vadc_is_ready();
-		if (rc) {
-			printk(KERN_INFO "%s is skipped once\n", __func__);
-			continue;
-		}
-		rc = qpnp_vadc_read_lge(LR_MUX10_USB_ID_LV, &result);
-#else
 		rc = qpnp_vadc_read(vadc, LR_MUX10_USB_ID_LV, &result);
-#endif
 		if (rc < 0) {
 			if (rc == -ETIMEDOUT) {
 				/* reason: adc read timeout,
@@ -522,42 +502,14 @@ __setup("uart_console=", lge_uart_mode);
 	for download complete using LAF image
 	return value : 1 --> right after laf complete & reset
 */
-#ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
-/* get panel maker ID from cmdline */
-static lcd_maker_id lge_panel_maker;
 
-/* CAUTION : These strings are come from LK */
-char *panel_maker[] = {"0", "1", "2"};
-
-static int __init board_panel_maker(char *maker_id)
-{
- int i;
-
- for (i = 0; i < LCD_MAKER_MAX; i++) {
- 	if (!strncmp(maker_id, panel_maker[i], 1)) {
- 		lge_panel_maker = (lcd_maker_id) i;
- 		break;
- 	}
- }
-
- printk(KERN_DEBUG "MAKER : %s\n", panel_maker[lge_panel_maker]);
- return 1;
-}
-__setup("lcd_maker_id=", board_panel_maker);
-
-lcd_maker_id lge_get_panel_maker(void)
-{
- return lge_panel_maker;
-}
-#endif
-
-int android_dlcomplete;
+int android_dlcomplete = 0;
 
 int __init lge_android_dlcomplete(char *s)
 {
-	if (strncmp(s, "1", 1) == 0)   /* if same string */
+	if(strncmp(s,"1",1) == 0)   // if same string
 		android_dlcomplete = 1;
-	else	/* not same string */
+	else	// not same string
 		android_dlcomplete = 0;
 	printk("androidboot.dlcomplete = %d\n", android_dlcomplete);
 
@@ -580,15 +532,15 @@ int __init lge_boot_mode_init(char *s)
 		lge_boot_mode = LGE_BOOT_MODE_CHARGER;
 	else if (!strcmp(s, "chargerlogo"))
 		lge_boot_mode = LGE_BOOT_MODE_CHARGERLOGO;
-	else if (!strcmp(s, "qem_130k") || !strcmp(s, "factory"))
+	else if (!strcmp(s, "qem_130k"))
 		lge_boot_mode = LGE_BOOT_MODE_FACTORY;
-	else if (!strcmp(s, "qem_56k") || !strcmp(s, "factory2"))
+	else if (!strcmp(s, "qem_56k"))
 		lge_boot_mode = LGE_BOOT_MODE_FACTORY2;
 	else if (!strcmp(s, "qem_910k"))
 		lge_boot_mode = LGE_BOOT_MODE_FACTORY3;
-	else if (!strcmp(s, "pif_130k") || !strcmp(s, "pifboot"))
+	else if (!strcmp(s, "pif_130k"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT;
-	else if (!strcmp(s, "pif_56k") || !strcmp(s, "pifboot2"))
+	else if (!strcmp(s, "pif_56k"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT2;
 	else if (!strcmp(s, "pif_910k"))
 		lge_boot_mode = LGE_BOOT_MODE_PIFBOOT3;
@@ -604,25 +556,6 @@ enum lge_boot_mode_type lge_get_boot_mode(void)
 	return lge_boot_mode;
 }
 
-#ifdef CONFIG_MACH_MSM8974_G2_VZW
-static int lge_battery_low = 0;
-int __init lge_is_battery_low(char *status)
-{
-
-	if(!strcmp(status, "trickle"))
-		lge_battery_low = 1;
-
-	return 1;
-	printk("charging status : %s/n", status);
-}
-__setup("is_battery_low=", lge_is_battery_low);
-
-int lge_get_battery_low(void)
-{
-	return lge_battery_low;
-}
-#endif
-
 int lge_get_factory_boot(void)
 {
 	int res;
@@ -631,17 +564,17 @@ int lge_get_factory_boot(void)
 	 *   cable must be factory cable.
 	 */
 	switch (lge_boot_mode) {
-	case LGE_BOOT_MODE_FACTORY:
-	case LGE_BOOT_MODE_FACTORY2:
-	case LGE_BOOT_MODE_FACTORY3:
-	case LGE_BOOT_MODE_PIFBOOT:
-	case LGE_BOOT_MODE_PIFBOOT2:
-	case LGE_BOOT_MODE_PIFBOOT3:
-		res = 1;
-		break;
-	default:
-		res = 0;
-		break;
+		case LGE_BOOT_MODE_FACTORY:
+		case LGE_BOOT_MODE_FACTORY2:
+		case LGE_BOOT_MODE_FACTORY3:
+		case LGE_BOOT_MODE_PIFBOOT:
+		case LGE_BOOT_MODE_PIFBOOT2:
+		case LGE_BOOT_MODE_PIFBOOT3:
+			res = 1;
+			break;
+		default:
+			res = 0;
+			break;
 	}
 	return res;
 }
@@ -664,25 +597,17 @@ int lge_get_factory_cable(void)
 }
 
 /* for board revision */
-static hw_rev_type lge_bd_rev = HW_REV_1_0; /* HW_REV_B; */
+static hw_rev_type lge_bd_rev = HW_REV_C; //HW_REV_B;
 
 /* CAUTION: These strings are come from LK. */
-#if defined (CONFIG_MACH_MSM8974_G3_GLOBAL_COM)
+#if defined (CONFIG_MACH_MSM8974_G3_GLOBAL_COM) ||defined (CONFIG_MACH_MSM8974_G3_KDDI)
 char *rev_str[] = {"evb1", "evb2", "rev_a", "rev_a1", "rev_b", "rev_c", "rev_d",
-	"rev_e", "rev_g", "rev_h", "rev_10", "rev_11", "rev_12",
-	"reserved"};
-#elif defined (CONFIG_MACH_MSM8974_G3_KDDI)
-char *rev_str[] = {"evb1", "evb2", "rev_a", "rev_a1", "rev_b", "rev_c", "rev_d",
-	"rev_e","rev_f", "rev_g", "rev_h", "rev_10", "rev_11", "rev_12",
-	"reserved"};
-#elif defined (CONFIG_MACH_MSM8974_DZNY_DCM)
-char *rev_str[] = {"evb1", "evb2", "rev_a", "rev_b", "rev_c", "rev_d",
-	"rev_e","rev_f", "rev_g", "rev_h", "rev_10", "rev_11", "rev_12",
-	"reserved"};
+	"rev_e","rev_g", "rev_h", "rev_10", "rev_11", "rev_12",
+	"revserved"};
 #else
 char *rev_str[] = {"evb1", "evb2", "rev_a", "rev_b", "rev_c", "rev_d",
 	"rev_e", "rev_f", "rev_g", "rev_h", "rev_10", "rev_11", "rev_12",
-	"reserved"};
+	"revserved"};
 #endif
 
 static int __init board_revno_setup(char *rev_info)
@@ -707,20 +632,7 @@ hw_rev_type lge_get_board_revno(void)
 {
     return lge_bd_rev;
 }
-
-#ifdef CONFIG_LGE_LCD_TUNING
-static struct platform_device lcd_misc_device = {
-	.name = "lcd_misc_msm",
-	.id = 0,
-};
-
-void __init lge_add_lcd_misc_devices(void)
-{
-	platform_device_register(&lcd_misc_device);
-}
-#endif
-
-#ifdef CONFIG_LCD_KCAL
+#if defined(CONFIG_LCD_KCAL)
 /* LGE_CHANGE_S
 * change code for LCD KCAL
 * 2013-05-08, seojin.lee@lge.com
@@ -729,57 +641,7 @@ int g_kcal_r = 255;
 int g_kcal_g = 255;
 int g_kcal_b = 255;
 
-int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
-{
-#if 0
-	int is_update = 0;
-
-	int kcal_r_limit = 250;
-	int kcal_g_limit = 250;
-	int kcal_b_limit = 253;
-
-	g_kcal_r = kcal_r < kcal_r_limit ? kcal_r_limit : kcal_r;
-	g_kcal_g = kcal_g < kcal_g_limit ? kcal_g_limit : kcal_g;
-	g_kcal_b = kcal_b < kcal_b_limit ? kcal_b_limit : kcal_b;
-
-	if (kcal_r < kcal_r_limit || kcal_g < kcal_g_limit || kcal_b < kcal_b_limit)
-		is_update = 1;
-	if (is_update)
-		update_preset_lcdc_lut();
-#else
-	g_kcal_r = kcal_r;
-	g_kcal_g = kcal_g;
-	g_kcal_b = kcal_b;
-#endif
-	return 0;
-}
-
-static int kcal_get_values(int *kcal_r, int *kcal_g, int *kcal_b)
-{
-	*kcal_r = g_kcal_r;
-	*kcal_g = g_kcal_g;
-	*kcal_b = g_kcal_b;
-	return 0;
-}
-
-static int kcal_refresh_values(void)
-{
-	return update_preset_lcdc_lut();
-}
-
-static struct kcal_platform_data kcal_pdata = {
-	.set_values = kcal_set_values,
-	.get_values = kcal_get_values,
-	.refresh_display = kcal_refresh_values
-};
-
-static struct platform_device kcal_platrom_device = {
-	.name   = "kcal_ctrl",
-	.dev = {
-		.platform_data = &kcal_pdata,
-	}
-};
-
+extern int kcal_set_values(int kcal_r, int kcal_g, int kcal_b);
 static int __init display_kcal_setup(char *kcal)
 {
 	char vaild_k = 0;
@@ -799,14 +661,7 @@ static int __init display_kcal_setup(char *kcal)
 	return 1;
 }
 __setup("lge.kcal=", display_kcal_setup);
-
-void __init lge_add_lcd_kcal_devices(void)
-{
-	pr_info(" KCAL_DEBUG : %s\n", __func__);
-	platform_device_register(&kcal_platrom_device);
-}
 #endif
-
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 struct lge_battery_id_platform_data lge_battery_id_plat = {
 	.id = 13,
@@ -831,8 +686,8 @@ static enum lge_laf_mode_type lge_laf_mode = LGE_LAF_MODE_NORMAL;
 
 int __init lge_laf_mode_init(char *s)
 {
-    if (strcmp(s, "") && strcmp(s, "MID"))
-        lge_laf_mode = LGE_LAF_MODE_LAF;
+	if (strcmp(s, ""))
+		lge_laf_mode = LGE_LAF_MODE_LAF;
 
 	return 1;
 }
@@ -875,7 +730,6 @@ int lge_get_kswitch_status(void)
 {
     return kswitch_status;
 }
-#endif
 
 static int lge_boot_reason = -1; /* undefined for error checking */
 static int __init lge_check_bootreason(char *reason)
@@ -930,21 +784,21 @@ static int get_factory_cable(void)
 	int res;
 
 	switch (lge_boot_mode) {
-	case LGE_BOOT_MODE_FACTORY:
-	case LGE_BOOT_MODE_PIFBOOT:
-		res = LGEUSB_FACTORY_130K;
-		break;
-	case LGE_BOOT_MODE_FACTORY2:
-	case LGE_BOOT_MODE_PIFBOOT2:
-		res = LGEUSB_FACTORY_56K;
-		break;
-	case LGE_BOOT_MODE_FACTORY3:
-	case LGE_BOOT_MODE_PIFBOOT3:
-		res = LGEUSB_FACTORY_910K;
-		break;
-	default:
-		res = 0;
-		break;
+		case LGE_BOOT_MODE_FACTORY:
+		case LGE_BOOT_MODE_PIFBOOT:
+			res = LGEUSB_FACTORY_130K;
+			break;
+		case LGE_BOOT_MODE_FACTORY2:
+		case LGE_BOOT_MODE_PIFBOOT2:
+			res = LGEUSB_FACTORY_56K;
+			break;
+		case LGE_BOOT_MODE_FACTORY3:
+		case LGE_BOOT_MODE_PIFBOOT3:
+			res = LGEUSB_FACTORY_910K;
+			break;
+		default:
+			res = 0;
+			break;
 	}
 	return res;
 }
@@ -970,4 +824,5 @@ void __init lge_add_android_usb_devices(void)
 {
 	platform_device_register(&lge_android_usb_device);
 }
+#endif
 #endif

@@ -44,7 +44,7 @@ int num_cmds;
 int tun_len[REGNUM];
 
 char init_buf[TUNING_REGSIZE];
-struct tuning_init {
+struct tuning_init{
 	char buf[TUNING_REGSIZE];
 	int size[REGNUM];
 	int numcmds;
@@ -53,7 +53,7 @@ struct tuning_init {
 int read_porch(unsigned long tmp)
 {
 	int size = ARRAY_SIZE(tun_porch_value)*4;
-	pr_info(KERN_INFO "read_porch_value\n");
+	pr_info(KERN_INFO "read_porch_value \n");
 	if (copy_to_user((uint32_t *)tmp, tun_porch_value, size)) {
 		pr_info(KERN_ERR "read_file : error of copy_to_user_buff\n");
 		return -EFAULT;
@@ -114,9 +114,9 @@ static int read_initset(unsigned long tmp)
 static int write_initset(unsigned long tmp)
 {
 	struct tuning_init *wbuf = (struct tuning_init *)tmp;
-	int i = 0;
+	int i=0;
 #if TUNING_DBG
-	int j = 0, k = 0;
+	int j=0, k=0;
 #endif
 	int data_offset;
 
@@ -134,7 +134,7 @@ static int write_initset(unsigned long tmp)
 		return -EFAULT;
 	}
 
-	pr_info("%s: num_cmds: %d\n", __func__, num_cmds);
+	printk("%s: num_cmds: %d\n", __func__, num_cmds);
 	tun_dsi_panel_on_cmds =
 		kzalloc((num_cmds * sizeof(struct dsi_cmd_desc)), GFP_KERNEL);
 	if (!tun_dsi_panel_on_cmds) {
@@ -145,20 +145,20 @@ static int write_initset(unsigned long tmp)
 	data_offset = 0;
 
 #if TUNING_DBG
-	pr_info("========================\n");
-	while (i < sizeof(wbuf->buf)) {
-		pr_info("%x ", init_buf[i]);
+	printk("========================\n");
+	while(i < sizeof(wbuf->buf)) {
+		printk("%x ", init_buf[i]);
 		j++;
-		if (j == wbuf->size[k]) {
-			pr_info("\n");
+		if(j == wbuf->size[k]) {
+			printk("\n");
 			j = 0;
 			k++;
 		}
-		if (k == wbuf->numcmds)
+		if(k == wbuf->numcmds)
 			break;
 		i++;
 	}
-	pr_info("========================\n");
+	printk("========================\n");
 #endif
 
 	for (i = 0; i < num_cmds; i++) {
@@ -177,7 +177,7 @@ static int write_initset(unsigned long tmp)
 
 #if TUNING_DBG
 	for (i = 0; i < num_cmds; i++) {
-		pr_info("%dth data <%x, %x, %x, %x, %x, %d, %x...>\n",
+		printk("%dth data <%x, %x, %x, %x, %x, %d, %x...>\n",
 				i+1,
 				tun_dsi_panel_on_cmds[i].dchdr.dtype,
 				tun_dsi_panel_on_cmds[i].dchdr.last,
@@ -236,7 +236,7 @@ static struct platform_driver this_driver = {
 
 int __init lcd_misc_init(void)
 {
-	pr_debug("lcd_misc_init\n");
+	pr_debug("lcd_misc_init \n");
 	return platform_driver_register(&this_driver);
 }
 

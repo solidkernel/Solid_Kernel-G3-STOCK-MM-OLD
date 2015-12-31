@@ -18,14 +18,9 @@
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 
-#ifdef CONFIG_VM_EVENT_COUNTERS
-#include <linux/vmstat.h>
-#include <linux/jiffies.h>
-#include <linux/cpu.h>
-#endif
-
-#define FILE_PATH_LEN	256
-#define PROC_NAME_LEN	16
+#define FILE_PATHLEN	200
+#define FILE_NAMELEN	100
+#define PROC_NAMELEN	16
 #define PROF_BUF_SIZE	2000
 #define PROF_TIMEOUT	60
 #define PROF_NOT	0
@@ -33,10 +28,6 @@
 #define PROF_RUN	2
 #define PROF_OPT	3
 #define PROF_DONE	4
-
-#ifdef CONFIG_VM_EVENT_COUNTERS
-#define VM_CHK_INTERVAL (HZ / 10)
-#endif
 
 /* #define DEBUG */
 #ifdef DEBUG
@@ -50,8 +41,8 @@
 	((((x) - 1 + PAGE_CACHE_SIZE) >> PAGE_CACHE_SHIFT) << PAGE_CACHE_SHIFT)
 
 struct sreadahead_profdata {
-	unsigned char procname[PROC_NAME_LEN];
-	unsigned char name[FILE_PATH_LEN];
+	char procname[PROC_NAMELEN];
+	unsigned char name[FILE_PATHLEN+FILE_NAMELEN];
 	long long len; /* same as pos[][1] - pos[][0] */
 	long long pos[2]; /* 0: start position 1: end position */
 };

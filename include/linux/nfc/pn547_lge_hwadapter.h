@@ -6,7 +6,6 @@
 #include <linux/of_gpio.h>
 
 #ifdef CONFIG_LGE_NFC_USE_PMIC
-#include <linux/clk.h>
 #include "../../../arch/arm/mach-msm/clock-rpm.h"
 
 #define D1_ID		 2
@@ -23,7 +22,5 @@ void pn547_shutdown_cb(struct pn547_dev *pn547_dev);
 #ifdef CONFIG_LGE_NFC_USE_PMIC
 void pn547_get_clk_source(struct pn547_dev *pn547_dev);
 #endif
-
-void pn547_parse_dt(struct device *dev, struct pn547_dev *pn547_dev);
 
 #endif /* _PN547_LGE_HWADAPTER_H_ */

@@ -12,7 +12,6 @@ struct dm_tty {
 	int set_logging;
 	struct workqueue_struct *dm_wq;
 	struct work_struct dm_usb_work;
-    struct work_struct dm_dload_work;
 };
 
 extern struct dm_tty *lge_dm_tty;

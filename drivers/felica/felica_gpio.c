@@ -13,6 +13,7 @@
 
 
 /* Debug message feature */
+/* #define FELICA_DEBUG_MSG */
 
 /*
 * Description :
@@ -30,8 +31,9 @@ int felica_gpio_open(int gpionum, int direction, int value)
 
   if(rc)
   {
-    FELICA_DEBUG_MSG_HIGH("[FELICA_GPIO] ERROR - gpio_tlmm_config \n");
-
+    #ifdef FEATURE_DEBUG_HIGH
+    FELICA_DEBUG_MSG("[FELICA_GPIO] ERROR - gpio_tlmm_config \n");
+	#endif
     return rc;
   }
 
@@ -52,8 +54,9 @@ int felica_gpio_open(int gpionum, int direction, int value)
 
     if(rc)
     {
-      FELICA_DEBUG_MSG_HIGH("[FELICA_GPIO] ERROR -  gpio_direction_input \n");
-
+      #ifdef FEATURE_DEBUG_HIGH
+      FELICA_DEBUG_MSG("[FELICA_GPIO] ERROR -  gpio_direction_input \n");
+	  #endif
       return rc;
     }
   }
@@ -63,8 +66,9 @@ int felica_gpio_open(int gpionum, int direction, int value)
 
     if(rc)
     {
-      FELICA_DEBUG_MSG_HIGH("[FELICA_GPIO] ERROR - gpio_tlmm_config \n");
-
+      #ifdef FEATURE_DEBUG_HIGH
+      FELICA_DEBUG_MSG("[FELICA_GPIO] ERROR - gpio_tlmm_config \n");
+	  #endif
       return rc;
     }
 	if(GPIO_FELICA_PON == gpionum)
@@ -77,8 +81,9 @@ int felica_gpio_open(int gpionum, int direction, int value)
 
     if(rc)
     {
-      FELICA_DEBUG_MSG_HIGH("[FELICA_GPIO] ERROR -  gpio_direction_output \n");
-
+      #ifdef FEATURE_DEBUG_HIGH
+      FELICA_DEBUG_MSG("[FELICA_GPIO] ERROR -  gpio_direction_output \n");
+	  #endif
       return rc;
     }
   }
@@ -116,10 +121,29 @@ int felica_get_rfs_gpio_num(void)
 
   int gpionum = GPIO_FELICA_RFS;
 
+  pr_info("CBAL current rev -> %d \n",lge_get_board_revno());
 
-  FELICA_DEBUG_MSG_LOW("[FELICA_GPIO] felica_get_rfs_gpio_num(%d) \n",gpionum);
 
-  return gpionum;
+  if (lge_get_board_revno() < HW_REV_B)
+  {
+	  pr_info("CBAL RFS-CDET gpio rev old -> %d \n",GPIO_FELICA_RFS_REV_A);
+
+    gpionum = GPIO_FELICA_RFS_REV_A;
+  }
+  else
+  {
+	  pr_info("CBAL RFS-CDET gpio rev -> %d \n",GPIO_FELICA_RFS);
+
+    gpionum = GPIO_FELICA_RFS;
+  }
+
+	#ifdef FEATURE_DEBUG_LOW
+	FELICA_DEBUG_MSG("[FELICA_GPIO] felica_get_rfs_gpio_num(%d) \n",gpionum);
+	#endif
+	return gpionum;	
+
+	return GPIO_FELICA_RFS;
+
 }
 
 /*
@@ -141,8 +165,9 @@ int felica_get_int_gpio_num(void)
   {
     gpionum = GPIO_FELICA_INT_REV_D;  
   }
-	FELICA_DEBUG_MSG_LOW("[FELICA_GPIO] felica_get_rws_gpio_num(%d) \n",gpionum);
-
+	#ifdef FEATURE_DEBUG_LOW
+	FELICA_DEBUG_MSG("[FELICA_GPIO] felica_get_rws_gpio_num(%d) \n",gpionum);
+	#endif
 	return gpionum;
 #else	
 	return GPIO_FELICA_INT;

@@ -18,11 +18,7 @@
 #include <linux/leds.h>
 
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
-#ifdef CONFIG_LGE_PM_CHARGING_TEMP_SCENARIO_V1_7
-#include <mach/lge_charging_scenario_v1_7.h>
-#else
 #include <mach/lge_charging_scenario.h>
-#endif
 #endif
 
 struct device;
@@ -53,7 +49,6 @@ enum {
 	POWER_SUPPLY_CHARGE_TYPE_NONE,
 	POWER_SUPPLY_CHARGE_TYPE_TRICKLE,
 	POWER_SUPPLY_CHARGE_TYPE_FAST,
-	POWER_SUPPLY_CHARGE_TYPE_TAPER,
 };
 
 enum {
@@ -115,7 +110,6 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
-	POWER_SUPPLY_PROP_VCHG_LOOP_DBC_BYPASS,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_POWER_NOW,
@@ -156,28 +150,15 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
 	POWER_SUPPLY_PROP_BAT_REMOVED,
 #endif
-#if defined(CONFIG_VZW_POWER_REQ) || defined(CONFIG_SMB349_VZW_FAST_CHG)
+#ifdef CONFIG_VZW_POWER_REQ
 	POWER_SUPPLY_PROP_VZW_CHG,
 #endif
-#if defined(CONFIG_CHARGER_MAX77819) || defined(CONFIG_CHARGER_MAX8971) || \
-    defined(CONFIG_BQ24296_CHARGER) || defined(CONFIG_SMB349_CHARGER)
+#if defined(CONFIG_CHARGER_MAX77819) || defined(CONFIG_CHARGER_MAX8971) || defined(CONFIG_BQ24296_CHARGER)
 	POWER_SUPPLY_PROP_SAFTETY_CHARGER_TIMER,
 	POWER_SUPPLY_PROP_CHARGING_COMPLETE,
 #endif
-#ifdef CONFIG_LGE_PM_USB_CURRENT_MAX_MODE
-        POWER_SUPPLY_PROP_USB_CURRENT_MAX_MODE,
-#endif
-#ifdef CONFIG_FTT_CHARGER_V3
-	POWER_SUPPLY_PROP_FTT_ANNTENA_LEVEL,
-#endif
-#ifdef CONFIG_MAX17050_FUELGAUGE
-	POWER_SUPPLY_PROP_BATTERY_CONDITION,
-	POWER_SUPPLY_PROP_BATTERY_AGE,
-#endif
-#if defined CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
-	POWER_SUPPLY_PROP_USE_FUELGAUGE,
-#endif
 #if defined(CONFIG_CHARGER_UNIFIED_WLC)
+	POWER_SUPPLY_PROP_WIRELESS_CHARGER_SWITCH,
 #ifdef CONFIG_CHARGER_UNIFIED_WLC_ALIGNMENT
 	POWER_SUPPLY_PROP_ALIGNMENT,
 #if defined(CONFIG_CHARGER_UNIFIED_WLC_ALIGNMENT_IDT9025A) && defined(CONFIG_CHARGER_FACTORY_MODE)
@@ -187,7 +168,7 @@ enum power_supply_property {
 #endif
 #endif
 #endif
-#if defined(CONFIG_LGE_PM_LLK_MODE)
+#if defined(CONFIG_LGE_PM_VZW_LLK)
 	POWER_SUPPLY_PROP_STORE_DEMO_ENABLED,
 #endif
 	/* Properties of type `const char *' */
@@ -218,7 +199,6 @@ enum power_supply_event_type {
 #endif
 #ifdef CONFIG_LGE_PM
 	POWER_SUPPLY_PROP_FLOATED_CHARGER,
-	POWER_SUPPLY_PROP_DRIVER_UNINSTALL,
 #endif
 };
 
@@ -231,11 +211,8 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
-#if defined(CONFIG_CHARGER_UNIFIED_WLC) || defined(CONFIG_WIRELESS_CHARGER)
+#if defined(CONFIG_CHARGER_UNIFIED_WLC)
 	POWER_SUPPLY_TYPE_WIRELESS,
-#endif
-#if defined CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
-	POWER_SUPPLY_TYPE_FUELGAUGE,
 #endif
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 };
@@ -295,10 +272,6 @@ struct power_supply {
 #endif
 #ifdef CONFIG_LGE_PM
 	int is_floated_charger;
-	int is_usb_driver_uninstall;
-#endif
-#if defined CONFIG_LGE_PM_BATTERY_EXTERNAL_FUELGAUGE
-	int use_external_fuelgauge;
 #endif
 };
 
@@ -324,14 +297,12 @@ struct power_supply_info {
 #if defined(CONFIG_POWER_SUPPLY) || defined(CONFIG_POWER_SUPPLY_MODULE)
 #ifdef CONFIG_LGE_PM
 int power_supply_set_floated_charger(struct power_supply *psy, int is_float);
-int power_supply_set_usb_driver_uninstall(struct power_supply *psy, int is_float);
 #endif
 extern struct power_supply *power_supply_get_by_name(char *name);
 extern void power_supply_changed(struct power_supply *psy);
 extern int power_supply_am_i_supplied(struct power_supply *psy);
 extern int power_supply_set_battery_charged(struct power_supply *psy);
 extern int power_supply_set_current_limit(struct power_supply *psy, int limit);
-extern int power_supply_set_voltage_limit(struct power_supply *psy, int limit);
 extern int power_supply_set_online(struct power_supply *psy, bool enable);
 extern int power_supply_set_health_state(struct power_supply *psy, int health);
 extern int power_supply_set_present(struct power_supply *psy, bool enable);
@@ -351,9 +322,6 @@ static inline void power_supply_changed(struct power_supply *psy) { }
 static inline int power_supply_am_i_supplied(struct power_supply *psy)
 							{ return -ENOSYS; }
 static inline int power_supply_set_battery_charged(struct power_supply *psy)
-							{ return -ENOSYS; }
-static inline int power_supply_set_voltage_limit(struct power_supply *psy,
-							int limit)
 							{ return -ENOSYS; }
 static inline int power_supply_set_current_limit(struct power_supply *psy,
 							int limit)

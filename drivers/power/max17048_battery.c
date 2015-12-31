@@ -80,14 +80,9 @@
 #define MAX17048_LOW_POLLING_PERIOD     5000
 #endif
 
-#ifdef CONFIG_LGE_PM_LLK_MODE
-#ifdef CONFIG_MACH_MSM8974_G3_VZW
+#ifdef CONFIG_LGE_PM_VZW_LLK
 #define LLK_MAX_THR_SOC 35
 #define LLK_MIN_THR_SOC 30
-#else
-#define LLK_MAX_THR_SOC 75
-#define LLK_MIN_THR_SOC 70
-#endif
 #endif
 
 #define MAX17048_BATTERY_FULL           100
@@ -128,7 +123,7 @@ struct max17048_chip {
 	int state;
 	struct power_supply *batt_psy;
 	struct power_supply *ac_psy;
-#ifdef CONFIG_LGE_PM_LLK_MODE
+#ifdef CONFIG_LGE_PM_VZW_LLK
 	struct power_supply *usb_psy;
 #endif
 #endif
@@ -186,7 +181,7 @@ static int max17048_get_config(struct i2c_client *client)
 		dev_err(&client->dev, "%s: err %d\n", __func__, config);
 		return config;
 	} else {
-		printk(KERN_ERR "%s : config = 0x%x\n", __func__, config);
+		pr_debug("%s : config = 0x%x\n", __func__, config);
 		chip->config = config;
 		return 0;
 	}
@@ -202,7 +197,7 @@ static int max17048_get_status(struct i2c_client *client)
 		dev_err(&client->dev, "%s: err %d\n", __func__, status);
 		return status;
 	} else {
-		printk(KERN_ERR "%s : status = 0x%x\n", __func__, status);
+		pr_debug("%s : status = 0x%x\n", __func__, status);
 		chip->status = status;
 		return 0;
 	}
@@ -272,7 +267,7 @@ static int max17048_get_capacity_from_soc(void)
 
 	batt_soc = max17048_capacity_evaluator((int)batt_soc);
 #ifdef CONFIG_LGE_UPSCALING_LOW_SOC
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+#ifdef CONFIG_LGE_BATT_DUALISATION
 	/* Report 0.42%(0x300) ~ 1% to 1% */
 	/* If Full and Emplty is changed, need to modify the value, 3 */
 	else if (batt_soc == 0 && buf[0] >= 3) {
@@ -521,7 +516,7 @@ static void max17048_work(struct work_struct *work)
 #ifdef CONFIG_LGE_PM
 	int ret = 0;
 #endif
-#ifdef CONFIG_LGE_PM_LLK_MODE
+#ifdef CONFIG_LGE_PM_VZW_LLK
 	union power_supply_propval val = {0,};
 #endif
 
@@ -555,7 +550,7 @@ static void max17048_work(struct work_struct *work)
 	max17048_get_vcell(chip->client);
 	max17048_get_soc(chip->client);
 
-	printk(KERN_ERR "%s : Raw SOC : 0x%x / vcell : 0x%x\n",
+	pr_debug("%s : Raw SOC : 0x%x / vcell : 0x%x\n",
 		__func__, chip->soc, chip->vcell);
 
 #ifdef CONFIG_LGE_PM
@@ -565,7 +560,7 @@ static void max17048_work(struct work_struct *work)
 		chip->lasttime_soc = chip->soc;
 		chip->lasttime_capacity_level = chip->capacity_level;
 
-		printk(KERN_ERR "%s : Reported Capacity : %d / voltage : %d\n",
+		pr_debug("%s : Reported Capacity : %d / voltage : %d\n",
 				__func__, chip->capacity_level, chip->voltage);
 
 		if (!chip->batt_psy) {
@@ -575,17 +570,17 @@ static void max17048_work(struct work_struct *work)
 				goto psy_error;
 		}
 
-#ifdef CONFIG_LGE_PM_LLK_MODE
-		chip->batt_psy->get_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_STORE_DEMO_ENABLED,&val);
-		if (val.intval) {
-			if (!chip->usb_psy) {
-				chip->usb_psy = power_supply_get_by_name("usb");
+#ifdef CONFIG_LGE_PM_VZW_LLK
+		if (!chip->usb_psy) {
+			chip->usb_psy = power_supply_get_by_name("usb");
 
-				if (!chip->usb_psy)
-					goto psy_error;
-			}
-			chip->usb_psy->get_property(chip->usb_psy,POWER_SUPPLY_PROP_PRESENT,&val);
+			if (!chip->usb_psy)
+				goto psy_error;
+		}
+		chip->usb_psy->get_property(chip->usb_psy,POWER_SUPPLY_PROP_PRESENT,&val);
+		if (val.intval) {
+			chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STORE_DEMO_ENABLED,&val);
 			if (val.intval) {
 				printk(KERN_INFO "%s : LLK_mode is operating.\n", __func__);
 				if (chip->capacity_level > LLK_MAX_THR_SOC) {
@@ -623,18 +618,6 @@ static void max17048_work(struct work_struct *work)
 	}
 #endif
 
-#ifdef CONFIG_VZW_LLK
-	if (external_smb349_is_charger_present()) {
-		if (chip->capacity_level == 35) {
-			vzw_llk_smb349_enable_charging(0);
-			printk(KERN_INFO "%s : VZW LLK Charging Stop!!\n", __func__);
-		} else if (chip->capacity_level == 30) {
-			vzw_llk_smb349_enable_charging(1);
-			printk(KERN_INFO "%s : VZW LLK Charging Enable!!\n", __func__);
-		}
-	}
-#endif
-
 #ifdef CONFIG_MAX17048_SOC_ALERT
 	enable_irq(gpio_to_irq(chip->model_data->alert_gpio));
 #else
@@ -659,7 +642,7 @@ psy_error:
 static irqreturn_t max17048_interrupt_handler(int irq, void *data)
 {
 	struct max17048_chip *chip = data;
-	printk(KERN_ERR "%s : MAX17048 interupt occured\n", __func__);
+	pr_debug("%s : MAX17048 interupt occured\n", __func__);
 
 	if (chip == NULL) {
 		printk(KERN_INFO "%s : called before init.\n", __func__);
@@ -676,7 +659,7 @@ static int max17048_clear_interrupt(struct i2c_client *client)
 {
 	struct max17048_chip *chip = i2c_get_clientdata(client);
 	int ret;
-	printk(KERN_INFO "%s.\n", __func__);
+	pr_debug("%s.\n", __func__);
 	if (chip == NULL)
 		return -ENODEV;
 
@@ -855,17 +838,9 @@ int max17048_set_rcomp_by_temperature(struct i2c_client *client)
 
 	/* Calculate RCOMP by temperature*/
 	if (temp > 20)
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-		new_rcomp = init_rcomp + (int)((temp - 20)*temp_hot/(-10000));
-#else
 		new_rcomp = init_rcomp + (int)((temp - 20)*temp_hot/(-1000));
-#endif
 	else if (temp < 20)
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-		new_rcomp = init_rcomp + (int)((temp - 20)*temp_cold/(-10000));
-#else
 		new_rcomp = init_rcomp + (int)((temp - 20)*temp_cold/(-1000));
-#endif
 	else
 		new_rcomp = init_rcomp;
 
@@ -874,7 +849,7 @@ int max17048_set_rcomp_by_temperature(struct i2c_client *client)
 	else if (new_rcomp < 0)
 		new_rcomp = 0;
 
-	pr_err("%s : temp = %d, pre_rcomp = 0x%02X -> new_rcomp = 0x%02X\n"
+	pr_debug("%s : temp = %d, pre_rcomp = 0x%02X -> new_rcomp = 0x%02X\n"
 		, __func__ , temp, pre_rcomp, new_rcomp);
 
 	/* Write RCOMP */
@@ -1085,25 +1060,31 @@ static int max17048_parse_dt(struct device *dev,
 			&mdata->full_design);
 
 #ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
+#ifdef CONFIG_MACH_MSM8974_G3_CN
 	if (cell_info == LGC_LLL) {
-		rc = of_property_read_u32(dev_node, "max17048,rcomp_lgc",
-				&mdata->rcomp);
-		rc = of_property_read_u32(dev_node, "max17048,temp_co_hot_lgc",
-				&mdata->temp_co_hot);
-		rc = of_property_read_u32(dev_node, "max17048,temp_co_cold_lgc",
-				&mdata->temp_co_cold);
-		rc = of_property_read_u32(dev_node, "max17048,empty_lgc",
-				&mdata->empty);
+		mdata->rcomp = 96;
+		mdata->temp_co_hot = 225;
+		mdata->temp_co_cold = 5050;
+		mdata->empty = 0;
 	} else if (cell_info == TCD_AAC) {
-		rc = of_property_read_u32(dev_node, "max17048,rcomp_tcd",
-				&mdata->rcomp);
-		rc = of_property_read_u32(dev_node, "max17048,temp_co_hot_tcd",
-				&mdata->temp_co_hot);
-		rc = of_property_read_u32(dev_node, "max17048,temp_co_cold_tcd",
-				&mdata->temp_co_cold);
-		rc = of_property_read_u32(dev_node, "max17048,empty_tcd",
-				&mdata->empty);
+		mdata->rcomp = 55;
+		mdata->temp_co_hot = 637;
+		mdata->temp_co_cold = 4525;
+		mdata->empty = 0;
 	}
+#else
+	if (cell_info == LGC_LLL) {
+		mdata->rcomp = 103;
+		mdata->temp_co_hot = 375;
+		mdata->temp_co_cold = 6650;
+		mdata->empty = 0;
+	} else if (cell_info == TCD_AAC) {
+		mdata->rcomp = 55;
+		mdata->temp_co_hot = 637;
+		mdata->temp_co_cold = 4525;
+		mdata->empty = 0;
+	}
+#endif
 #else
 	rc = of_property_read_u32(dev_node, "max17048,rcomp",
 			&mdata->rcomp);

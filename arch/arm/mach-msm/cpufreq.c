@@ -42,15 +42,6 @@
 #include <asm/div64.h>
 #endif
 
-#ifdef CONFIG_LGE_LIMIT_FREQ_TABLE
-#include <mach/board_lge.h>
-#endif
-
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-#include <linux/power/lge_battery_id.h>
-#include <mach/msm_smsm.h>
-#endif
-
 static DEFINE_MUTEX(l2bw_lock);
 
 static struct clk *cpu_clk[NR_CPUS];
@@ -237,9 +228,6 @@ static int msm_cpufreq_verify(struct cpufreq_policy *policy)
 
 static unsigned int msm_cpufreq_get_freq(unsigned int cpu)
 {
-	if (is_clk && is_sync)
-		cpu = 0;
-
 	if (is_clk)
 		return clk_get_rate(cpu_clk[cpu]) / 1000;
 
@@ -338,38 +326,22 @@ static int __cpuinit msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 	 * before the CPU is brought up.
 	 */
 	case CPU_DEAD:
+	case CPU_UP_CANCELED:
 		if (is_clk) {
 			clk_disable_unprepare(cpu_clk[cpu]);
 			clk_disable_unprepare(l2_clk);
 			update_l2_bw(NULL);
 		}
 		break;
-	case CPU_UP_CANCELED:
-		if (is_clk) {
-			clk_unprepare(cpu_clk[cpu]);
-			clk_unprepare(l2_clk);
-			update_l2_bw(NULL);
-		}
-		break;
 	case CPU_UP_PREPARE:
 		if (is_clk) {
-			rc = clk_prepare(l2_clk);
+			rc = clk_prepare_enable(l2_clk);
 			if (rc < 0)
 				return NOTIFY_BAD;
-			rc = clk_prepare(cpu_clk[cpu]);
+			rc = clk_prepare_enable(cpu_clk[cpu]);
 			if (rc < 0)
 				return NOTIFY_BAD;
 			update_l2_bw(&cpu);
-		}
-		break;
-	case CPU_STARTING:
-		if (is_clk) {
-			rc = clk_enable(l2_clk);
-			if (rc < 0)
-				return NOTIFY_BAD;
-			rc = clk_enable(cpu_clk[cpu]);
-			if (rc < 0)
-				return NOTIFY_BAD;
 		}
 		break;
 	default:
@@ -429,72 +401,19 @@ static struct cpufreq_driver msm_cpufreq_driver = {
 	.attr		= msm_freq_attr,
 };
 
-#ifdef CONFIG_LGE_LIMIT_FREQ_TABLE
-#define PROP_FACT_TBL "lge,cpufreq-factory-table"
-#endif
-
 #define PROP_TBL "qcom,cpufreq-table"
 static int cpufreq_parse_dt(struct device *dev)
 {
 	int ret, len, nf, num_cols = 2, i, j;
 	u32 *data;
 
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-    uint *smem_batt = 0;
-    int IsBattery = 0;
-#endif
-
-#ifdef CONFIG_LGE_LIMIT_FREQ_TABLE
-	enum lge_boot_mode_type boot_mode = lge_get_boot_mode();
-#endif
-
 	if (l2_clk)
 		num_cols++;
 
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-    smem_batt = (uint *)smem_alloc(SMEM_BATT_INFO, sizeof(smem_batt));
-    if (smem_batt == NULL) {
-        pr_err("%s : smem_alloc returns NULL\n",__func__);
-    }
-    else {
-        pr_err("Batt ID from SBL = %d\n", *smem_batt);
-        if (*smem_batt == BATT_ID_DS2704_L ||
-            *smem_batt == BATT_ID_DS2704_C ||
-            *smem_batt == BATT_ID_ISL6296_L ||
-            *smem_batt == BATT_ID_ISL6296_C) {
-            //To Do if Battery is present
-            IsBattery = 1;
-        }
-        else {
-            //To Do if Battery is absent
-            IsBattery = 0;
-        }
-    }
-#endif
-
-#ifdef CONFIG_LGE_LIMIT_FREQ_TABLE
-	if(boot_mode == LGE_BOOT_MODE_FACTORY || boot_mode == LGE_BOOT_MODE_PIFBOOT
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-	   || IsBattery == 0
-#endif
-		) {
-		/* XXX: MSM8974v1 is not considered */
-		/* Parse CPU freq -> L2/Mem BW map table. */
-		if (!of_find_property(dev->of_node, PROP_FACT_TBL, &len))
-			return -EINVAL;
-		len /= sizeof(*data);
-	} else {
-		/* Parse CPU freq -> L2/Mem BW map table. */
-		if (!of_find_property(dev->of_node, PROP_TBL, &len))
-			return -EINVAL;
-		len /= sizeof(*data);
-	}
-#else /* qmc original */
 	/* Parse CPU freq -> L2/Mem BW map table. */
 	if (!of_find_property(dev->of_node, PROP_TBL, &len))
 		return -EINVAL;
 	len /= sizeof(*data);
-#endif
 
 	if (len % num_cols || len == 0)
 		return -EINVAL;
@@ -504,25 +423,9 @@ static int cpufreq_parse_dt(struct device *dev)
 	if (!data)
 		return -ENOMEM;
 
-#ifdef CONFIG_LGE_LIMIT_FREQ_TABLE
-	if(boot_mode == LGE_BOOT_MODE_FACTORY || boot_mode == LGE_BOOT_MODE_PIFBOOT
-#ifdef CONFIG_LGE_PM_BATTERY_ID_CHECKER
-	   || IsBattery == 0
-#endif
-		) {
-		ret = of_property_read_u32_array(dev->of_node, PROP_FACT_TBL, data, len);
-		if (ret)
-			return ret;
-	} else {
-		ret = of_property_read_u32_array(dev->of_node, PROP_TBL, data, len);
-		if (ret)
-			return ret;
-	}
-#else /* qmc original */
 	ret = of_property_read_u32_array(dev->of_node, PROP_TBL, data, len);
 	if (ret)
 		return ret;
-#endif
 
 	/* Allocate all data structures. */
 	freq_table = devm_kzalloc(dev, (nf + 1) * sizeof(*freq_table),

@@ -274,13 +274,6 @@ typedef enum
     WEXT_SCAN_PENDING_MAX
 } hdd_scan_pending_option_e;
 
-enum
-{
-   WLAN_HDD_GET_FRAME_LOG_CMD_CLEAR          = 1<<0,
-   WLAN_HDD_GET_FRAME_LOG_CMD_SEND_AND_CLEAR = 1<<1,
-   WLAN_HDD_GET_FRAME_LOG_CMD_BMU_TRACING    = 1<<2,
-};
-
 /* 
  * This structure contains the interface level (granularity) 
  * configuration information in support of wireless extensions. 
@@ -447,9 +440,6 @@ void hdd_wmm_tx_snapshot(hdd_adapter_t *pAdapter);
 
 #ifdef FEATURE_WLAN_TDLS
 VOS_STATUS iw_set_tdls_params(struct net_device *dev, struct iw_request_info *info, union iwreq_data *wrqu, char *extra, int nOffset);
-int iw_set_tdlsoffchannelmode(hdd_adapter_t *pAdapter, int offchanmode);
-int iw_set_tdlssecoffchanneloffset(hdd_context_t *pHddCtx, int offchanoffset);
-int iw_set_tdlsoffchannel(hdd_context_t *pHddCtx, int offchannel);
 #endif
 #if defined WLAN_FEATURE_VOWIFI_11R || defined FEATURE_WLAN_ESE || defined(FEATURE_WLAN_LFR)
 VOS_STATUS wlan_hdd_get_roam_rssi(hdd_adapter_t *pAdapter, v_S7_t *rssi_value);
@@ -462,7 +452,6 @@ void* wlan_hdd_change_country_code_callback(void *pAdapter);
 
 int hdd_setBand(struct net_device *dev, u8 ui_band);
 int hdd_setBand_helper(struct net_device *dev, const char *command);
-VOS_STATUS wlan_hdd_get_frame_logs(hdd_adapter_t *pAdapter, v_U8_t flag);
 
 #endif // __WEXT_IW_H__
 

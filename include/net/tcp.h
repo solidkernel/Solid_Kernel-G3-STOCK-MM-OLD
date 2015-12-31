@@ -98,7 +98,7 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
 				 * 15 is ~13-30min depending on RTO.
 				 */
 /* 2012-01-17 jk.soh@lge.com LGP_DATA_TCPIP_TCP_SYN_RETRY_CONFIG_UPLUS [START]*/
-#if defined(CONFIG_MACH_MSM8974_B1_LGU) || defined(CONFIG_MACH_MSM8974_G3_LGU) || defined(CONFIG_MACH_MSM8974_G2_LGU)
+#if defined(CONFIG_MACH_MSM8974_B1_LGU) || defined(CONFIG_MACH_MSM8974_G3_LGU)
 #define TCP_SYN_RETRIES	 4
 #else
 #define TCP_SYN_RETRIES	 5	/* number of times to retry active opening a
@@ -259,8 +259,6 @@ extern int sysctl_tcp_max_ssthresh;
 extern int sysctl_tcp_cookie_size;
 extern int sysctl_tcp_thin_linear_timeouts;
 extern int sysctl_tcp_thin_dupack;
-extern int sysctl_tcp_challenge_ack_limit;
-extern int sysctl_tcp_default_init_rwnd;
 
 /* sysctl variables for controlling various tcp parameters */
 extern int sysctl_tcp_delack_seg;

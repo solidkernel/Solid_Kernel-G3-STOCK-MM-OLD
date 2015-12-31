@@ -192,7 +192,7 @@ static int broadcast_tdmb_get_ch_info(void __user *arg)
 
 	struct broadcast_tdmb_ch_info __user* puserdata = (struct broadcast_tdmb_ch_info __user*)arg;
 
-	if((puserdata == NULL)||( puserdata->ch_buf_addr == 0))
+	if((puserdata == NULL)||( puserdata->ch_buf == NULL))
 	{
 		printk("broadcast_tdmb_get_ch_info argument error\n");
 		return rc;
@@ -212,7 +212,7 @@ static int broadcast_tdmb_get_ch_info(void __user *arg)
 
 	if(rc == OK)
 	{
-		if(copy_to_user((void __user*)((unsigned int)puserdata->ch_buf_addr), (void*)fic_kernel_buffer, fic_len))
+		if(copy_to_user((void __user*)puserdata->ch_buf, (void*)fic_kernel_buffer, fic_len))
 		{
 			fic_len = 0;
 			rc = ERROR;
@@ -261,7 +261,7 @@ static int broadcast_tdmb_get_dmb_data(void __user *arg)
 			break;
 		}
 
-		if(copy_to_user((void __user*)(((unsigned int)puserdata->data_buf_addr) + copied_buffer_size), (void*)read_buffer_ptr, read_buffer_size))
+		if(copy_to_user((void __user*)(puserdata->data_buf + copied_buffer_size), (void*)read_buffer_ptr, read_buffer_size))
 		{
 			puserdata->copied_size= 0;
 			puserdata->packet_cnt = 0;
@@ -349,18 +349,6 @@ static int8 broadcast_tdmb_select_antenna(void __user *arg)
 	return rc;
 }
 
-static int8 broadcast_tdmb_set_nation(void __user *arg)
-{
-    int rc = ERROR;
-    int udata;
-    int __user* puser = (int __user*)arg;
-
-    udata = *puser;
-    rc = broadcast_drv_if_set_nation(udata);
-
-    return rc;
-}
-
 static ssize_t broadcast_tdmb_open_control(struct inode *inode, struct file *file)
 {
 	struct broadcast_tdmb_chdevice *the_dev =
@@ -437,11 +425,7 @@ static long broadcast_tdmb_ioctl_control(struct file *filep, unsigned int cmd,	u
 
 	case LGE_BROADCAST_TDMB_IOCTL_SELECT_ANTENNA:
 		rc = broadcast_tdmb_select_antenna(argp);
-        break;
-
-    case LGE_BROADCAST_TDMB_IOCTL_SET_NATION:
-        rc = broadcast_tdmb_set_nation(argp);
-        break;
+		break;
 
 	default:
 		printk("broadcast_tdmb_ioctl_control OK \n");

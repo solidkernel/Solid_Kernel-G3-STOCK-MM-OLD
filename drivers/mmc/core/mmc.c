@@ -66,21 +66,6 @@ static const struct mmc_fixup mmc_fixups[] = {
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_HYNIX,
 			      0x014a, add_quirk, MMC_QUIRK_BROKEN_HPI, 5),
 
-	/* Disable HPI feature for Kingstone card */
-	MMC_FIXUP_EXT_CSD_REV("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,
-			add_quirk, MMC_QUIRK_BROKEN_HPI, 5),
-
-	/*
-	 * Some Hynix cards exhibit data corruption over reboots if cache is
-	 * enabled. Disable cache for all versions until a class of cards that
-	 * show this behavior is identified.
-	 */
-	MMC_FIXUP("H8G2d", CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_CACHE_DISABLE),
-
-	MMC_FIXUP("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_CACHE_DISABLE),
-
 	END_FIXUP
 };
 
@@ -134,7 +119,7 @@ static int mmc_decode_cid(struct mmc_card *card)
 		 * don't care MDT y Field[11:8] value over 1101b.
 		 * 2014-03-07, B2-BSP-FS@lge.com
 		 */
-		if (card->ext_csd.rev > 4)
+		if(card->ext_csd.rev > 4)
 			card->cid.year		= UNSTUFF_BITS(resp, 8, 4) + 2013;
 		else
 #endif
@@ -337,21 +322,14 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		}
 	}
 
-	/* < By Qualcomm's case response , Case Number:  02214243 >
-	 *  eMMC5.1 card should be supported by MSM8974 with non-CQ mode.
-	 *  The code you pointed out is a known issue and we have fix for it.
-	 *  This fix is in msm-3.10 kernel but not in msm-3.4 for MSM8974.
-	 *  But you can safely apply this patch to resolve the issue.
-	 */
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
-#ifndef CONFIG_MACH_LGE
 	if (card->ext_csd.rev > 7) {
 		pr_err("%s: unrecognised EXT_CSD revision %d\n",
-				mmc_hostname(card->host), card->ext_csd.rev);
+			mmc_hostname(card->host), card->ext_csd.rev);
 		err = -EINVAL;
 		goto out;
 	}
-#endif
+
 	/* fixup device after ext_csd revision field is updated */
 	mmc_fixup_device(card, mmc_fixups);
 
@@ -373,8 +351,6 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
 	mmc_select_card_type(card);
-
-	card->ext_csd.raw_drive_strength = ext_csd[EXT_CSD_DRIVE_STRENGTH];
 
 	card->ext_csd.raw_s_a_timeout = ext_csd[EXT_CSD_S_A_TIMEOUT];
 	card->ext_csd.raw_erase_timeout_mult =
@@ -706,9 +682,7 @@ out:
 	mmc_free_ext_csd(bw_ext_csd);
 	return err;
 }
-#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
-MMC_DEV_ATTR(capacity, "%02x%02x%02x%02x\n", card->ext_csd.raw_sectors[3], card->ext_csd.raw_sectors[2], card->ext_csd.raw_sectors[1], card->ext_csd.raw_sectors[0]);
-#endif
+
 MMC_DEV_ATTR(cid, "%08x%08x%08x%08x\n", card->raw_cid[0], card->raw_cid[1],
 	card->raw_cid[2], card->raw_cid[3]);
 MMC_DEV_ATTR(csd, "%08x%08x%08x%08x\n", card->raw_csd[0], card->raw_csd[1],
@@ -729,9 +703,6 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 
 static struct attribute *mmc_std_attrs[] = {
-#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
-	&dev_attr_capacity.attr,
-#endif
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
 	&dev_attr_date.attr,
@@ -802,7 +773,9 @@ static int mmc_select_powerclass(struct mmc_card *card,
 				EXT_CSD_PWR_CL_52_195 :
 				EXT_CSD_PWR_CL_DDR_52_195;
 		else if (host->ios.clock <= 200000000)
-			index = EXT_CSD_PWR_CL_200_195;
+			index = (bus_width <= EXT_CSD_BUS_WIDTH_8) ?
+				EXT_CSD_PWR_CL_200_195 :
+				EXT_CSD_PWR_CL_DDR_200_195;
 		break;
 	case MMC_VDD_27_28:
 	case MMC_VDD_28_29:
@@ -820,9 +793,9 @@ static int mmc_select_powerclass(struct mmc_card *card,
 				EXT_CSD_PWR_CL_52_360 :
 				EXT_CSD_PWR_CL_DDR_52_360;
 		else if (host->ios.clock <= 200000000)
-			index = (bus_width == EXT_CSD_DDR_BUS_WIDTH_8) ?
-				EXT_CSD_PWR_CL_DDR_200_360 :
-				EXT_CSD_PWR_CL_200_360;
+			index = (bus_width <= EXT_CSD_BUS_WIDTH_8) ?
+				EXT_CSD_PWR_CL_200_360 :
+				EXT_CSD_PWR_CL_DDR_200_360;
 		break;
 	default:
 		#ifdef CONFIG_MACH_LGE
@@ -1212,7 +1185,7 @@ static int mmc_select_hs400(struct mmc_card *card, u8 *ext_csd)
 	 * As recommendation of Toshiba, we use 0x4 for Driver Strength in case of Toshiba eMMC.
 	 * 2014.03.17, B2-BSP-FS@lge.com
 	*/
-	if (card->cid.manfid == 17) {
+	if (card->cid.manfid == 17){
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_HS_TIMING, 67, 0);
 	} else {
@@ -1353,7 +1326,10 @@ static int mmc_reboot_notify(struct notifier_block *notify_block,
 	struct mmc_card *card = container_of(
 			notify_block, struct mmc_card, reboot_notify);
 
-	card->pon_type = (event != SYS_RESTART) ? MMC_LONG_PON : MMC_SHRT_PON;
+	if (event != SYS_RESTART)
+		card->issue_long_pon = true;
+	else
+		card->issue_long_pon = false;
 
 	return NOTIFY_OK;
 }
@@ -1769,24 +1745,19 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 	return err;
 }
 
-int mmc_send_pon(struct mmc_card *card)
+int mmc_send_long_pon(struct mmc_card *card)
 {
 	int err = 0;
 	struct mmc_host *host = card->host;
 
-	if (!mmc_can_poweroff_notify(card))
-		goto out;
-
 	mmc_claim_host(host);
-	if (card->pon_type & MMC_LONG_PON)
+	if (card->issue_long_pon && mmc_can_poweroff_notify(card)) {
 		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
-	else if (card->pon_type & MMC_SHRT_PON)
-		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
-	if (err)
-		pr_warn("%s: error %d sending PON type %u",
-			mmc_hostname(host), err, card->pon_type);
+		if (err)
+			pr_warning("%s: error %d sending Long PON",
+					mmc_hostname(host), err);
+	}
 	mmc_release_host(host);
-out:
 	return err;
 }
 
@@ -1799,12 +1770,11 @@ static void mmc_remove(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	unregister_reboot_notifier(&host->card->reboot_notify);
-
-	mmc_exit_clk_scaling(host);
 	mmc_remove_card(host->card);
 
 	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_exit_clk_scaling(host);
 	mmc_release_host(host);
 }
 
@@ -1875,10 +1845,15 @@ static int mmc_suspend(struct mmc_host *host)
 	if (err)
 		goto out;
 
-	if (mmc_card_can_sleep(host))
-		err = mmc_card_sleep(host);
-	else if (!mmc_host_is_spi(host))
-		mmc_deselect_cards(host);
+	#if defined(CONFIG_MACH_MSM8974_G3_GLOBAL_COM) //B2 Global does not support sleep(CMD5) command
+	if (!mmc_host_is_spi(host))
+        mmc_deselect_cards(host);
+	#else
+        if (mmc_card_can_sleep(host))
+            err = mmc_card_sleep(host);
+        else if (!mmc_host_is_spi(host))
+            mmc_deselect_cards(host);
+	#endif
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 
 out:

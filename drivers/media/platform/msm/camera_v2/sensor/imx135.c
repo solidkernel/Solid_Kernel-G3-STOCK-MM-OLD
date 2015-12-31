@@ -30,7 +30,7 @@ DEFINE_MSM_MUTEX(imx135_mut);
 static struct msm_sensor_ctrl_t imx135_s_ctrl;
 
 #if defined(CONFIG_MACH_LGE)
-static struct msm_sensor_power_setting imx135_power_setting_rev[] =
+static struct msm_sensor_power_setting imx135_power_setting_rev[] = 
 	{
 		{  /* Set GPIO_RESET to low to disable power on reset*/
 			.seq_type = SENSOR_GPIO,

@@ -197,12 +197,6 @@ struct mmc_hotplug {
 	void *handler_priv;
 };
 
-enum dev_state {
-	DEV_SUSPENDING = 1,
-	DEV_SUSPENDED,
-	DEV_RESUMED,
-};
-
  #ifdef CONFIG_MACH_LGE
 /* LGE_CHANGE, 2014/01/16, B2-BSP-FS@lge.com
  * extern int mmc_cd_get_status( )
@@ -451,12 +445,9 @@ struct mmc_host {
 		bool		enable;
 		bool		initialized;
 		bool		in_progress;
-		/* freq. transitions are not allowed in invalid state */
-		bool		invalid_state;
 		struct delayed_work work;
 		enum mmc_load	state;
 	} clk_scaling;
-	enum dev_state dev_status;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

@@ -298,18 +298,11 @@ void write_time_log(char *filename, char *data, int data_include)
 
 	set_fs(KERNEL_DS);
 
-	if (filename == NULL) {
-		if (factory_boot)
-			fname = "/data/logger/touch_self_test.txt";
-		else
-			fname = "/sdcard/touch_self_test.txt";
-
-	} else {
+	if (filename == NULL)
+		fname = "/mnt/sdcard/touch_self_test.txt";
+	else
 		fname = filename;
-	}
-
 	fd = sys_open(fname, O_WRONLY|O_CREAT|O_APPEND, 0666);
-	sys_chmod(fname, 0666);
 
     TOUCH_INFO_MSG("write open %s, fd : %d \n", (fd >= 0) ? "success" : "fail", fd);
 
@@ -1338,10 +1331,8 @@ static ssize_t show_firmware(struct i2c_client *client, char *buf)
 	int rc = 0;
 	mfts_mode = 0;
 
-	mutex_lock(&ts->pdata->thread_lock);
 	read_page_description_table(ts->client);
 	rc = get_ic_info(ts);
-	mutex_unlock(&ts->pdata->thread_lock);
 	if (rc < 0) {
 		ret += sprintf(buf+ret, "-1\n");
 		ret += sprintf(buf+ret, "Read Fail Touch IC Info.\n");
@@ -1405,10 +1396,8 @@ static ssize_t show_synaptics_fw_version(struct i2c_client *client, char *buf)
 	int ret = 0;
 	int rc = 0;
 
-	mutex_lock(&ts->pdata->thread_lock);
 	read_page_description_table(ts->client);
 	rc = get_ic_info(ts);
-	mutex_unlock(&ts->pdata->thread_lock);
 	if (rc < 0) {
 		ret += sprintf(buf+ret, "-1\n");
 		ret += sprintf(buf+ret, "Read Fail Touch IC Info.\n");
@@ -1470,7 +1459,6 @@ static ssize_t show_sd(struct i2c_client *client, char *buf)
 		msleep(10);
 		write_firmware_version_log(ts);
 
-		mutex_lock(&ts->pdata->thread_lock);
 		touch_disable_irq(ts->client->irq);
 
 		SCAN_PDT();
@@ -1563,7 +1551,7 @@ static ssize_t show_sd(struct i2c_client *client, char *buf)
 		msleep(30);
 		write_time_log(NULL, NULL, 0);
 		msleep(10);
-		mutex_unlock(&ts->pdata->thread_lock);
+
 
 		ret = sprintf(buf, "========RESULT=======\n");
 
@@ -2629,7 +2617,7 @@ error:
 	return -1;
 }
 
-enum error_type synaptics_ts_probe(struct i2c_client *client, struct touch_platform_data* lge_ts_data,
+enum error_type synaptics_ts_probe(struct i2c_client *client, const struct touch_platform_data* lge_ts_data,
 				const struct state_info *state, struct attribute ***attribute_list)
 {
 	struct synaptics_ts_data *ts;

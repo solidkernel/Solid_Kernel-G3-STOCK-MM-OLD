@@ -18,10 +18,6 @@
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
 #include <linux/io.h>
-#include <linux/memblock.h>
-#include <linux/slab.h>
-#include <linux/of.h>
-#include <linux/of_address.h>
 #include <asm/setup.h>
 #include <linux/init.h>
 #include <mach/subsystem_restart.h>
@@ -48,8 +44,6 @@
 static int dummy_arg;
 
 static int subsys_crash_magic = 0x0;
-
-static struct panic_handler_data *panic_handler;
 
 int lge_set_magic_subsystem(const char *name, int type)
 {
@@ -142,34 +136,12 @@ static int gen_mba_panic(const char *val, struct kernel_param *kp)
 module_param_call(gen_mba_panic, gen_mba_panic, param_get_bool, &dummy_arg,
 		S_IWUSR | S_IRUGO);
 
-static int gen_modem_panic_type = 0;
-
-int lge_get_modem_panic(void)
-{
-	return gen_modem_panic_type;
-}
-
-EXPORT_SYMBOL(lge_get_modem_panic);
-
 static int gen_modem_panic(const char *val, struct kernel_param *kp)
 {
-	int ret = param_set_int(val, kp);
-	if (ret) {
-		pr_err("error setting value %d\n", ret);
-		return ret;
-	}
-	pr_err("gen_modem_panic param to %d\n", gen_modem_panic_type);
-	switch (gen_modem_panic_type) {
-		case 2:
-			subsys_modem_restart();
-			break;
-		default:
-			subsystem_restart("modem");
-			break;
-	}
+	subsystem_restart("modem");
 	return 0;
 }
-module_param_call(gen_modem_panic, gen_modem_panic, param_get_bool, &gen_modem_panic_type,
+module_param_call(gen_modem_panic, gen_modem_panic, param_get_bool, &dummy_arg,
 		S_IWUSR | S_IRUGO);
 
 static int gen_wcnss_panic(const char *val, struct kernel_param *kp)
@@ -241,65 +213,6 @@ static int gen_hw_reset(const char *val, struct kernel_param *kp)
 }
 module_param_call(gen_hw_reset, gen_hw_reset, param_get_bool,
 		&dummy_arg, S_IWUSR | S_IRUGO);
-
-void lge_panic_handler_fb_free_page(unsigned long mem_addr, unsigned long size)
-{
-    unsigned long pfn_start, pfn_end, pfn_idx;
-
-    pfn_start = mem_addr >> PAGE_SHIFT;
-    pfn_end = (mem_addr + size) >> PAGE_SHIFT;
-
-    for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
-        free_reserved_page(pfn_to_page(pfn_idx));
-}
-
-void lge_panic_handler_fb_cleanup(void)
-{
-    static int free = 1;
-
-    if (!panic_handler || free > 1)
-        return;
-
-    if (panic_handler->fb_addr && panic_handler->fb_size) {
-        memblock_free(panic_handler->fb_addr, panic_handler->fb_size);
-        lge_panic_handler_fb_free_page(
-            panic_handler->fb_addr, panic_handler->fb_size);
-
-        free++;
-
-        pr_info("%s: free[@0x%lx+@0x%lx]\n", PANIC_HANDLER_NAME,
-                        panic_handler->fb_addr, panic_handler->fb_size);
-    }
-}
-
-static int __init lge_panic_handler_early_init(void)
-{
-    struct device_node *np;
-
-    panic_handler = kzalloc(sizeof(*panic_handler), GFP_KERNEL);
-
-    if (!panic_handler) {
-        pr_err("could not allocate memory for panic_handler\n");
-        return -ENOMEM;
-    }
-
-    np = of_find_compatible_node(NULL, NULL, "crash_fb");
-
-    if (!np) {
-        pr_err("unable to find crash_fb node\n");
-        return -ENODEV;
-    }
-
-    of_property_read_u32(np, "mem-addr", (u32*)&panic_handler->fb_addr);
-    of_property_read_u32(np, "mem-size", (u32*)&panic_handler->fb_size);
-
-    pr_info("%s: reserved[@0x%lx+@0x%lx]\n", PANIC_HANDLER_NAME,
-                panic_handler->fb_addr, panic_handler->fb_size);
-
-    return 0;
-}
-
-early_initcall(lge_panic_handler_early_init);
 
 static int __init lge_panic_handler_probe(struct platform_device *pdev)
 {

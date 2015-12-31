@@ -30,11 +30,6 @@
 
 #define MAX_DRV_SUP_MMB_BLKS	44
 
-#if defined(CONFIG_MACH_MSM8974_G3) || defined(CONFIG_MACH_MSM8974_DZNY)
-#define MDP_BW_LIMIT_AB
-#define BW_CHECK_AGAIN_FOR_UNDERRUN
-#endif
-
 enum mdss_mdp_clk_type {
 	MDSS_CLK_AHB,
 	MDSS_CLK_AXI,
@@ -99,15 +94,6 @@ struct mdss_prefill_data {
 	u32 fbc_lines;
 };
 
-enum mdss_hw_index {
-	MDSS_HW_MDP,
-	MDSS_HW_DSI0,
-	MDSS_HW_DSI1,
-	MDSS_HW_HDMI,
-	MDSS_HW_EDP,
-	MDSS_MAX_HW_BLK
-};
-
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -132,10 +118,8 @@ struct mdss_data_type {
 	u32 has_decimation;
 	u8 has_wfd_blk;
 	u32 has_no_lut_read;
-	atomic_t sd_client_count;
 	u8 has_wb_ad;
 
-	u32 rotator_ot_limit;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
@@ -164,16 +148,7 @@ struct mdss_data_type {
 
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
-	struct mdss_fudge_factor ib_factor_overlap;
 	struct mdss_fudge_factor clk_factor;
-
-#ifdef MDP_BW_LIMIT_AB
-	struct mdss_fudge_factor ab_factor_limit;
-	struct mdss_fudge_factor ib_factor_limit;
-#endif
-
-	u32 *clock_levels;
-	u32 nclk_lvl;
 
 	struct mdss_hw_settings *hw_settings;
 
@@ -217,21 +192,24 @@ struct mdss_data_type {
 
 	int handoff_pending;
 	struct mdss_prefill_data prefill_data;
-	bool ulps;
-	int iommu_ref_cnt;
 #ifdef CONFIG_LGE_VSYNC_SKIP
 	char enable_skip_vsync;
 	ulong skip_value;
 	ulong weight;
 	ulong bucket;
 	ulong skip_count;
-	int skip_ratio;
-	bool skip_first;
 #endif
-	u64 ab[MDSS_MAX_HW_BLK];
-	u64 ib[MDSS_MAX_HW_BLK];
 };
 extern struct mdss_data_type *mdss_res;
+
+enum mdss_hw_index {
+	MDSS_HW_MDP,
+	MDSS_HW_DSI0,
+	MDSS_HW_DSI1,
+	MDSS_HW_HDMI,
+	MDSS_HW_EDP,
+	MDSS_MAX_HW_BLK
+};
 
 struct mdss_hw {
 	u32 hw_ndx;
@@ -244,8 +222,6 @@ void mdss_enable_irq(struct mdss_hw *hw);
 void mdss_disable_irq(struct mdss_hw *hw);
 void mdss_disable_irq_nosync(struct mdss_hw *hw);
 void mdss_bus_bandwidth_ctrl(int enable);
-int mdss_iommu_ctrl(int enable);
-int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 
 static inline struct ion_client *mdss_get_ionclient(void)
 {
@@ -270,13 +246,5 @@ static inline int mdss_get_iommu_domain(u32 type)
 		return -ENODEV;
 
 	return mdss_res->iommu_map[type].domain_idx;
-}
-
-static inline int mdss_get_sd_client_cnt(void)
-{
-	if (!mdss_res)
-		return 0;
-	else
-		return atomic_read(&mdss_res->sd_client_count);
 }
 #endif /* MDSS_H */

@@ -34,6 +34,11 @@
 /* following offsets are relative to status register bit offset */
 #define CLK_STATUS_OFFSET	0x0
 
+#if defined (CONFIG_MACH_LGE_G3_KDDI_LGD_FHD)
+#define PANEL_X_RES 1080
+#define PANEL_Y_RES 1920
+#endif
+
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 
@@ -216,11 +221,11 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_plane_sizes ps;
 	int i;
 	int rc = 0, rot_mode = 0, wb_mixer = 0;
-	bool force_alloc = 0;
 	u32 nlines, format, seg_w;
+	bool force_alloc = 0;
 	u16 width;
 
-	width = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
+	width = pipe->src.w >> pipe->horz_deci;
 
 	if (pipe->bwc_mode) {
 		rc = mdss_mdp_get_rau_strides(pipe->src.w, pipe->src.h,
@@ -271,13 +276,13 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			}
 		}
 		rc = mdss_mdp_get_plane_sizes(format, width, pipe->src.h,
-			&ps, 0, 0);
+			&ps, 0);
 		if (rc)
 			return rc;
 
 		if (pipe->mixer && pipe->mixer->rotator_mode) {
 			rot_mode = 1;
-		} else if (pipe->mixer && (ps.num_planes == 1)) {
+		} else if (ps.num_planes == 1) {
 			ps.ystride[0] = MAX_BPP *
 				max(pipe->mixer->width, width);
 		} else if (mdata->has_decimation) {
@@ -344,7 +349,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		for (; i >= 0; i--)
 			mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved,
 				false);
-		rc = -ENOBUFS;
+		rc = -ENOMEM;
 	}
 	mutex_unlock(&mdss_mdp_smp_lock);
 
@@ -564,8 +569,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		 * shared as long as its attached to a writeback mixer
 		 */
 		pipe = mdata->dma_pipes + mixer->num;
-		if (pipe->mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
-			return NULL;
+		mdss_mdp_pipe_map(pipe);
 		kref_get(&pipe->kref);
 		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
 	} else {
@@ -888,7 +892,6 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	u32 decimation;
 	struct mdss_mdp_img_rect sci, dst, src;
 	int ret = 0;
-	bool rotation = false;
 
 	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
 			pipe->num, pipe->img_width, pipe->img_height,
@@ -897,12 +900,8 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 
 	width = pipe->img_width;
 	height = pipe->img_height;
-
-	if (pipe->flags & MDP_SOURCE_ROTATED_90)
-		rotation = true;
-
 	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
-			&pipe->src_planes, pipe->bwc_mode, rotation);
+			&pipe->src_planes, pipe->bwc_mode);
 
 	if (data != NULL) {
 		ret = mdss_mdp_data_check(data, &pipe->src_planes);
@@ -929,22 +928,17 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	dst = pipe->dst;
 	src = pipe->src;
 
-	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
 		mdss_mdp_crop_rect(&src, &dst, &sci);
-		if (pipe->flags & MDP_FLIP_LR) {
-			src.x = pipe->src.x + (pipe->src.x + pipe->src.w)
-				- (src.x + src.w);
-		}
-		if (pipe->flags & MDP_FLIP_UD) {
-			src.y = pipe->src.y + (pipe->src.y + pipe->src.h)
-				- (src.y + src.h);
-		}
-	}
 
 	src_size = (src.h << 16) | src.w;
 	src_xy = (src.y << 16) | src.x;
 	dst_size = (dst.h << 16) | dst.w;
+#if defined (CONFIG_MACH_LGE_G3_KDDI_LGD_FHD)
+	dst_xy = ((PANEL_Y_RES - dst.y - dst.h) << 16) | dst.x;
+#else
 	dst_xy = (dst.y << 16) | dst.x;
+#endif
 
 	ystride0 =  (pipe->src_planes.ystride[0]) |
 			(pipe->src_planes.ystride[1] << 16);
@@ -1043,6 +1037,12 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			(fmt->unpack_align_msb << 18) |
 			((fmt->bpp - 1) << 9);
 
+#if defined(CONFIG_MACH_LGE_G3_KDDI_LGD_FHD)
+	if (pipe->flags & MDP_FLIP_UD)
+		opmode &= ~MDSS_MDP_OP_FLIP_UD;
+	else
+		opmode |= MDSS_MDP_OP_FLIP_UD;
+#endif
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
 	if (pipe->scale.enable_pxl_ext)
@@ -1050,8 +1050,8 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 	if (fmt->tile && mdata->highest_bank_bit) {
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_FETCH_CONFIG,
-			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
-				 mdata->highest_bank_bit << 18);
+				MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
+				mdata->highest_bank_bit << 18);
 	}
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
@@ -1252,9 +1252,8 @@ int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
 static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 	struct mdss_mdp_pipe *pipe, u32 plane, u32 off)
 {
-	u32 src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
+	u32 src_h = pipe->src.h >> pipe->vert_deci;
 	u32 mask = 0xFF;
-	u32 lr_pe, tb_pe, tot_req_pixels;
 
 	/*
 	 * CB CR plane required pxls need to be accounted
@@ -1262,33 +1261,23 @@ static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 	 */
 	if (plane == 1)
 		src_h >>= pipe->chroma_sample_v;
-
-	lr_pe = ((pipe->scale.right_ftch[plane] & mask) << 24)|
+	writel_relaxed(((pipe->scale.right_ftch[plane] & mask) << 24)|
 		((pipe->scale.right_rpt[plane] & mask) << 16)|
 		((pipe->scale.left_ftch[plane] & mask) << 8)|
-		(pipe->scale.left_rpt[plane] & mask);
-
-	tb_pe = ((pipe->scale.btm_ftch[plane] & mask) << 24)|
+		(pipe->scale.left_rpt[plane] & mask), pipe->base +
+			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_LR + off);
+	writel_relaxed(((pipe->scale.btm_ftch[plane] & mask) << 24)|
 		((pipe->scale.btm_rpt[plane] & mask) << 16)|
 		((pipe->scale.top_ftch[plane] & mask) << 8)|
-		(pipe->scale.top_rpt[plane] & mask);
-
-	writel_relaxed(lr_pe, pipe->base +
-			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_LR + off);
-	writel_relaxed(tb_pe, pipe->base +
+		(pipe->scale.top_rpt[plane] & mask), pipe->base +
 			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_TB + off);
-
 	mask = 0xFFFF;
-	tot_req_pixels = (((src_h + pipe->scale.num_ext_pxls_top[plane] +
+	writel_relaxed((((src_h + pipe->scale.num_ext_pxls_top[plane] +
 		pipe->scale.num_ext_pxls_btm[plane]) & mask) << 16) |
 		((pipe->scale.roi_w[plane] +
 		pipe->scale.num_ext_pxls_left[plane] +
-		pipe->scale.num_ext_pxls_right[plane]) & mask);
-	writel_relaxed(tot_req_pixels, pipe->base +
+		pipe->scale.num_ext_pxls_right[plane]) & mask), pipe->base +
 			MDSS_MDP_REG_SSPP_SW_PIX_EXT_C0_REQ_PIXELS + off);
-
-	pr_debug("pipe num=%d, plane=%d, LR PE=0x%x, TB PE=0x%x, req_pixels=0x0%x\n",
-		pipe->num, plane, lr_pe, tb_pe, tot_req_pixels);
 }
 
 /**

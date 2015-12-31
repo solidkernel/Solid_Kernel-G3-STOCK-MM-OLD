@@ -12,12 +12,6 @@
 
 static struct sreadahead_prof prof_buf;
 
-#ifdef CONFIG_VM_EVENT_COUNTERS
-static unsigned long vm_chk_jiffies;
-#endif
-
-static DECLARE_WAIT_QUEUE_HEAD(prof_state_wait);
-
 static void prof_buf_free_work(struct work_struct *data)
 {
 	mutex_lock(&prof_buf.ulock);
@@ -27,7 +21,6 @@ static void prof_buf_free_work(struct work_struct *data)
 	}
 
 	prof_buf.state = PROF_NOT;
-	wake_up_interruptible(&prof_state_wait);
 	vfree(prof_buf.data);
 	prof_buf.data = NULL;
 	_DBG("mem of prof_buf is freed by vfree()");
@@ -82,31 +75,10 @@ static ssize_t sreadaheadflag_dbgfs_read(
 		size_t buff_count,
 		loff_t *ppos)
 {
-	int ret = 0;
-
-	DECLARE_WAITQUEUE(wait, current);
-	add_wait_queue(&prof_state_wait, &wait);
-	__set_current_state(TASK_INTERRUPTIBLE);
-
-	do {
-		if (prof_buf.state == PROF_DONE || prof_buf.state == PROF_NOT) {
-			break;
-		}
-		schedule();
-	} while(1);
-
-	if (copy_to_user(buff, &prof_buf.state, sizeof(int))) {
-		ret = 0;
-	} else {
-		ret = sizeof(int);
-	}
-
+	if (copy_to_user(buff, &prof_buf.state, sizeof(int)))
+		return 0;
 	(*ppos) = 0;
-
-	__set_current_state(TASK_RUNNING);
-	remove_wait_queue(&prof_state_wait, &wait);
-
-	return ret;
+	return sizeof(int);
 }
 
 static ssize_t sreadaheadflag_dbgfs_write(
@@ -122,17 +94,13 @@ static ssize_t sreadaheadflag_dbgfs_write(
 
 	if (state == PROF_INIT) {
 		mutex_lock(&prof_buf.ulock);
-		if (prof_buf.state != PROF_NOT) {
-			mutex_unlock(&prof_buf.ulock);
-			return 0;
-		}
 		_DBG("PROF_INT");
 		prof_buf.state = state;
+		mutex_unlock(&prof_buf.ulock);
 
 		_DBG("add timer");
 		prof_buf.timer.expires = get_jiffies_64() + (PROF_TIMEOUT * HZ);
 		add_timer(&prof_buf.timer);
-		mutex_unlock(&prof_buf.ulock);
 	} else if (state == PROF_DONE) {
 		mutex_lock(&prof_buf.ulock);
 		if (prof_buf.state != PROF_RUN) {
@@ -141,11 +109,10 @@ static ssize_t sreadaheadflag_dbgfs_write(
 		}
 		_DBG("PROF_DONE by user daemon(boot_completed)");
 		prof_buf.state = state;
-		wake_up_interruptible(&prof_state_wait);
+		mutex_unlock(&prof_buf.ulock);
 
 		_DBG("del timer");
 		del_timer(&prof_buf.timer);
-		mutex_unlock(&prof_buf.ulock);
 	}
 
 	(*ppos) = 0;
@@ -236,48 +203,15 @@ static int get_absolute_path(unsigned char *buf, int buflen, struct file *filp)
 	return 0;
 }
 
-static int is_system_partition(unsigned char *fn)
-{
+static int is_system_partition(unsigned char *fn) {
 	return strncmp((const char*)fn, "/system/", 8) == 0 ? 1 : 0;
 }
-
-#ifdef CONFIG_VM_EVENT_COUNTERS
-static int check_vm_pgsteal_events(void)
-{
-	int cpu;
-	int i;
-
-	for_each_online_cpu(cpu) {
-		struct vm_event_state *this = &per_cpu(vm_event_states, cpu);
-
-		for (i = PGSTEAL_DIRECT_MOVABLE; i > PGREFILL_MOVABLE; i--) {
-			if (this->event[i] > 0) {
-				return 1;
-			}
-		}
-	}
-
-	return 0;
-}
-
-static int check_vm_events(void)
-{
-	int ret;
-
-	get_online_cpus();
-	ret = check_vm_pgsteal_events();
-	put_online_cpus();
-
-	return ret;
-}
-#endif
 
 static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 {
 	int i;
 	int buflen;
 	struct sreadahead_profdata data;
-
 	memset(&data, 0x00, sizeof(struct sreadahead_profdata));
 	data.len = (long long)len;
 	data.pos[0] = pos;
@@ -285,7 +219,7 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 	data.procname[0] = '\0';
 	get_task_comm(data.procname, current);
 
-	buflen = FILE_PATH_LEN;
+	buflen = FILE_PATHLEN + FILE_NAMELEN;
 	if (get_absolute_path(data.name, buflen, filp) < 0)
 		return -ENOENT;
 	strlcat(data.name, filp->f_path.dentry->d_name.name, buflen);
@@ -302,15 +236,17 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 	}
 
 	for (i = 0; i < prof_buf.file_cnt; ++i) {
-		if (strncmp(prof_buf.data[i].name, data.name, FILE_PATH_LEN) == 0)
+		if (strncmp(prof_buf.data[i].name, data.name,
+				FILE_PATHLEN + FILE_NAMELEN) == 0)
 			break;
 	}
 	/* add a new entry */
 	if (i == prof_buf.file_cnt && i < PROF_BUF_SIZE) {
-		strlcpy(prof_buf.data[i].procname, data.procname, PROC_NAME_LEN);
-		prof_buf.data[i].procname[PROC_NAME_LEN - 1] = '\0';
-		strlcpy(prof_buf.data[i].name, data.name, FILE_PATH_LEN);
-		prof_buf.data[i].name[FILE_PATH_LEN - 1] = '\0';
+		strlcpy(prof_buf.data[i].procname, data.procname, PROC_NAMELEN);
+		prof_buf.data[i].procname[PROC_NAMELEN - 1] = '\0';
+		strlcpy(prof_buf.data[i].name, data.name, FILE_PATHLEN
+			+ FILE_NAMELEN);
+		prof_buf.data[i].name[FILE_PATHLEN + FILE_NAMELEN - 1] = '\0';
 		prof_buf.data[i].pos[0] = prof_buf.data[i].pos[1]
 			= ALIGNPAGECACHE(data.pos[0]);
 		prof_buf.data[i].pos[1] +=
@@ -330,21 +266,8 @@ static int sreadahead_prof_RUN(struct file *filp, size_t len, loff_t pos)
 	if (prof_buf.file_cnt >= PROF_BUF_SIZE) {
 		_DBG("PROF_DONE by kernel(file_cnt) & del timer");
 		prof_buf.state = PROF_DONE;
-		wake_up_interruptible(&prof_state_wait);
 		del_timer(&prof_buf.timer);
 	}
-
-#ifdef CONFIG_VM_EVENT_COUNTERS
-	if (time_after(jiffies, vm_chk_jiffies + VM_CHK_INTERVAL)) {
-		vm_chk_jiffies = jiffies;
-		if (check_vm_events()) {
-			_DBG("PROF_DONE by pgsteal");
-			prof_buf.state = PROF_DONE;
-			wake_up_interruptible(&prof_state_wait);
-			del_timer(&prof_buf.timer);
-		}
-	}
-#endif
 
 	mutex_unlock(&prof_buf.ulock);
 
@@ -369,11 +292,7 @@ static int sreadahead_profdata_init(void)
 		sizeof(struct sreadahead_profdata) * PROF_BUF_SIZE);
 	prof_buf.state = PROF_RUN;
 
-#ifdef CONFIG_VM_EVENT_COUNTERS
-	vm_chk_jiffies = jiffies;
-#endif
 	mutex_unlock(&prof_buf.ulock);
-
 	return 0;
 }
 

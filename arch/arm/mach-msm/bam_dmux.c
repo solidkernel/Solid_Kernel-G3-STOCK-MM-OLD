@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,9 +228,11 @@ static struct srcu_struct bam_dmux_srcu;
 
 /* A2 power collaspe */
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
+#define UL_FAST_TIMEOUT_DELAY 100 /* in ms */
 #define ENABLE_DISCONNECT_ACK	0x1
 #define SHUTDOWN_TIMEOUT_MS	500
 #define UL_WAKEUP_TIMEOUT_MS	2000
+static uint32_t ul_timeout_delay = UL_TIMEOUT_DELAY;
 static void toggle_apps_ack(void);
 static void reconnect_to_bam(void);
 static void disconnect_to_bam(void);
@@ -269,6 +271,7 @@ static DEFINE_MUTEX(smsm_cb_lock);
 static DEFINE_MUTEX(delayed_ul_vote_lock);
 static int need_delayed_ul_vote;
 static int power_management_only_mode;
+static int in_ssr;
 static int ssr_skipped_disconnect;
 static struct completion shutdown_completion;
 
@@ -440,8 +443,7 @@ static void __queue_rx(gfp_t alloc_flags)
 			mutex_unlock(&bam_rx_pool_mutexlock);
 			DMUX_LOG_KERR("%s: sps_transfer_one failed %d\n",
 				__func__, ret);
-			if (bam_connection_is_active)
-				panic("forced crash\n");
+			panic("forced crash\n");
 
 			dma_unmap_single(NULL, info->dma_address, BUFFER_SIZE,
 						bam_ops->dma_from);
@@ -1618,7 +1620,7 @@ static void ul_timeout(struct work_struct *work)
 	ret = write_trylock_irqsave(&ul_wakeup_lock, flags);
 	if (!ret) { /* failed to grab lock, reschedule and bail */
 		schedule_delayed_work(&ul_timeout_work,
-				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+				msecs_to_jiffies(ul_timeout_delay));
 		return;
 	}
 	if (bam_is_connected) {
@@ -1642,7 +1644,7 @@ static void ul_timeout(struct work_struct *work)
 				__func__, ul_packet_written);
 			ul_packet_written = 0;
 			schedule_delayed_work(&ul_timeout_work,
-					msecs_to_jiffies(UL_TIMEOUT_DELAY));
+					msecs_to_jiffies(ul_timeout_delay));
 		} else {
 			ul_powerdown();
 		}
@@ -1728,7 +1730,7 @@ static void ul_wakeup(void)
 		if (likely(do_vote_dfab))
 			vote_dfab();
 		schedule_delayed_work(&ul_timeout_work,
-				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+				msecs_to_jiffies(ul_timeout_delay));
 		bam_is_connected = 1;
 		mutex_unlock(&wakeup_lock);
 		return;
@@ -1773,7 +1775,7 @@ static void ul_wakeup(void)
 	bam_is_connected = 1;
 	BAM_DMUX_LOG("%s complete\n", __func__);
 	schedule_delayed_work(&ul_timeout_work,
-				msecs_to_jiffies(UL_TIMEOUT_DELAY));
+				msecs_to_jiffies(ul_timeout_delay));
 	mutex_unlock(&wakeup_lock);
 }
 
@@ -1781,11 +1783,8 @@ static void reconnect_to_bam(void)
 {
 	int i;
 
-	if (in_global_reset) {
-		BAM_DMUX_LOG("%s: skipping due to SSR\n", __func__);
-		return;
-	}
-
+	in_global_reset = 0;
+	in_ssr = 0;
 	vote_dfab();
 	if (!power_management_only_mode) {
 		if (ssr_skipped_disconnect) {
@@ -1874,9 +1873,9 @@ static void disconnect_to_bam(void)
 	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
 
-	/* documentation/assumptions found in restart_notifier_cb */
+	/* in_ssr documentation/assumptions found in restart_notifier_cb */
 	if (!power_management_only_mode) {
-		if (likely(!in_global_reset)) {
+		if (likely(!in_ssr)) {
 			BAM_DMUX_LOG("%s: disconnect tx\n", __func__);
 			bam_ops->sps_disconnect_ptr(bam_tx_pipe);
 			BAM_DMUX_LOG("%s: disconnect rx\n", __func__);
@@ -2014,13 +2013,12 @@ static int restart_notifier_cb(struct notifier_block *this,
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
 		BAM_DMUX_LOG("%s: begin\n", __func__);
 		in_global_reset = 1;
-		/* sync to ensure the driver sees SSR */
+		in_ssr = 1;
+		/* wait till all bam_dmux writes completes */
 		synchronize_srcu(&bam_dmux_srcu);
 		BAM_DMUX_LOG("%s: ssr signaling complete\n", __func__);
 		flush_workqueue(bam_mux_rx_workqueue);
 	}
-	if (code == SUBSYS_BEFORE_POWERUP)
-		in_global_reset = 0;
 	if (code != SUBSYS_AFTER_SHUTDOWN)
 		return NOTIFY_DONE;
 
@@ -2091,7 +2089,6 @@ static int bam_init(void)
 	void *a2_virt_addr;
 	int skip_iounmap = 0;
 
-	in_global_reset = 0;
 	vote_dfab();
 	/* init BAM */
 	a2_virt_addr = ioremap_nocache((unsigned long)(a2_phys_base),
@@ -2355,9 +2352,7 @@ static void toggle_apps_ack(void)
 static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 {
 	static int last_processed_state;
-	int rcu_id;
 
-	rcu_id = srcu_read_lock(&bam_dmux_srcu);
 	mutex_lock(&smsm_cb_lock);
 	bam_dmux_power_state = new_state & SMSM_A2_POWER_CONTROL ? 1 : 0;
 	DBG_INC_A2_POWER_CONTROL_IN_CNT();
@@ -2366,7 +2361,6 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 	if (last_processed_state == (new_state & SMSM_A2_POWER_CONTROL)) {
 		BAM_DMUX_LOG("%s: already processed this state\n", __func__);
 		mutex_unlock(&smsm_cb_lock);
-		srcu_read_unlock(&bam_dmux_srcu, rcu_id);
 		return;
 	}
 
@@ -2393,20 +2387,16 @@ static void bam_dmux_smsm_cb(void *priv, uint32_t old_state, uint32_t new_state)
 		pr_err("%s: unsupported state change\n", __func__);
 	}
 	mutex_unlock(&smsm_cb_lock);
-	srcu_read_unlock(&bam_dmux_srcu, rcu_id);
+
 }
 
 static void bam_dmux_smsm_ack_cb(void *priv, uint32_t old_state,
 						uint32_t new_state)
 {
-	int rcu_id;
-
-	rcu_id = srcu_read_lock(&bam_dmux_srcu);
 	DBG_INC_ACK_IN_CNT();
 	BAM_DMUX_LOG("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
 	complete_all(&ul_wakeup_ack_completion);
-	srcu_read_unlock(&bam_dmux_srcu, rcu_id);
 }
 
 /**
@@ -2435,9 +2425,6 @@ void msm_bam_dmux_deinit(void)
 {
 	restart_notifier_cb(NULL, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	restart_notifier_cb(NULL, SUBSYS_AFTER_SHUTDOWN, NULL);
-	restart_notifier_cb(NULL, SUBSYS_BEFORE_POWERUP, NULL);
-	restart_notifier_cb(NULL, SUBSYS_AFTER_POWERUP, NULL);
-	in_global_reset = 0;
 }
 EXPORT_SYMBOL(msm_bam_dmux_deinit);
 
@@ -2491,13 +2478,20 @@ static int bam_dmux_probe(struct platform_device *pdev)
 			num_buffers = DEFAULT_NUM_BUFFERS;
 		}
 
-		DBG("%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d\n",
+		rc = of_property_read_bool(pdev->dev.of_node,
+						"qcom,fast-shutdown");
+		if (rc) {
+			ul_timeout_delay = UL_FAST_TIMEOUT_DELAY;
+		}
+
+		DBG("%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d ul_timeout_delay:%d\n",
 							__func__,
 							a2_phys_base,
 							a2_phys_size,
 							a2_bam_irq,
 							satellite_mode,
-							num_buffers);
+							num_buffers,
+							ul_timeout_delay);
 	} else { /* fallback to default init data */
 		a2_phys_base = (void *)(A2_PHYS_BASE);
 		a2_phys_size = A2_PHYS_SIZE;
@@ -2622,8 +2616,7 @@ static int __init bam_dmux_init(void)
 	}
 #endif
 
-	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux",
-			0);
+	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux");
 	if (!bam_ipc_log_txt) {
 		pr_err("%s : unable to create IPC Logging Context", __func__);
 	}

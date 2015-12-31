@@ -15,7 +15,7 @@
 #include <linux/rtc.h>
 #include <linux/sched.h>
 #include "rtc-core.h"
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 #include <linux/syscalls.h>
 #endif
 
@@ -23,18 +23,22 @@ static dev_t rtc_devt;
 
 #define RTC_DEV_MAX 16 /* 16 RTCs should be enough for everyone... */
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-bool poweron_alarm;
+#ifdef CONFIG_RTC_PWROFF_ALARM
+
 struct rtc_wkalrm g_poalarm;
 
+/*
 #define LGFTM_RTC_STATE		1
 #define FTM_BLOCK_SIZE		2048
-#define FTM_RTC_OFFSET		200
+#define FTM_RTC_OFFSET		512
+#define FTM_RTC_ENABLE_OFFSET	FTM_RTC_OFFSET
+#define FTM_RTC_TIME_OFFSET	FTM_RTC_OFFSET*2
 #define FTM_RTC_WRITE_SIZE	64
+#define FTM_RTC_READ_SIZE	FTM_RTC_WRITE_SIZE
 
 static const char *ftmdev = "/dev/block/platform/msm_sdcc.1/by-name/misc";
 
-void write_rtc_pwron_in_misc(struct rtc_wkalrm *alarm)
+void write_rtc_pwron_in_misc(struct rtc_wkalrm *alarm, enum RTC_PWR_TYPE type)
 {
 	int fd;
 	mm_segment_t old_fs;
@@ -49,32 +53,30 @@ void write_rtc_pwron_in_misc(struct rtc_wkalrm *alarm)
 	if (fd < 0) {
 		pr_err("[%s %d] sys_open error(%d)\n", __func__, __LINE__, fd);
 	}
-	else {
-		typedef struct {
-		uint32_t time;
-		uint8_t enabled;
-		uint8_t padding[3];
-		} alarm_info_type;
-
-		alarm_info_type alarm_info;
-
-		memset(&alarm_info, 0, sizeof(alarm_info_type));
-		rtc_tm_to_time(&alarm->time, &rtc_time);
-		alarm_info.time = rtc_time;
-		alarm_info.enabled = alarm->enabled;
-
-
-		memset(buf, 0, FTM_RTC_WRITE_SIZE);
-		offset = (LGFTM_RTC_STATE) * FTM_BLOCK_SIZE * FTM_RTC_OFFSET;
-		memcpy(buf, &alarm_info, sizeof(alarm_info_type));
+	else
+	{
+		if (type == LG_RTC_POWER_ON_ENABLE) {
+			offset = (LGFTM_RTC_STATE) * FTM_BLOCK_SIZE + FTM_RTC_ENABLE_OFFSET;
+			sprintf(buf, "%d", alarm->enabled);
+		}
+		else if (type == LG_RTC_POWER_ON_TIME) {
+			offset = (LGFTM_RTC_STATE) * FTM_BLOCK_SIZE + FTM_RTC_TIME_OFFSET;
+			rtc_tm_to_time(&alarm->time, &rtc_time);
+			sprintf(buf, "%ld", rtc_time);
+		}
+		else {
+			pr_err("[%s %d] invalid RTC_PWR_TYPE(%d)\n", __func__, __LINE__, type);
+			goto exit;
+		}
 
 		sys_lseek(fd, offset, 0);
 
-		if (sys_write(fd, buf, sizeof(alarm_info_type)) != FTM_RTC_WRITE_SIZE)
+		if (sys_write(fd, buf, FTM_RTC_WRITE_SIZE) != FTM_RTC_WRITE_SIZE)
 			pr_err("[%s %d] sys_write error\n", __func__, __LINE__);
 		else
 			pr_info("[%s %d] write rtc pwnon %s\n", __func__, __LINE__, buf);
 
+exit:
 		sys_close(fd);
 	}
 
@@ -82,6 +84,59 @@ void write_rtc_pwron_in_misc(struct rtc_wkalrm *alarm)
 
 }
 EXPORT_SYMBOL_GPL(write_rtc_pwron_in_misc);
+
+unsigned long read_rtc_pwron_in_misc(struct rtc_wkalrm *alarm, enum RTC_PWR_TYPE type)
+{
+	int fd;
+	mm_segment_t old_fs;
+	char buf[FTM_RTC_READ_SIZE];
+	unsigned long read_value = 0;
+	int offset = 0;
+
+	old_fs = get_fs();
+	set_fs(get_ds());
+
+	fd = sys_open(ftmdev, O_RDONLY, 0);
+	if (fd < 0) {
+		pr_err("[%s %d] sys_open error(%d)\n", __func__, __LINE__, fd);
+	}
+	else {
+		if (type == LG_RTC_POWER_ON_ENABLE)
+			offset = (LGFTM_RTC_STATE) * FTM_BLOCK_SIZE + FTM_RTC_ENABLE_OFFSET;
+		else if (type == LG_RTC_POWER_ON_TIME)
+			offset = (LGFTM_RTC_STATE) * FTM_BLOCK_SIZE + FTM_RTC_TIME_OFFSET;
+		else {
+			pr_err("[%s %d] invalid RTC_PWR_TYPE(%d)\n", __func__, __LINE__, type);
+			goto exit;
+		}
+
+		pr_info("[%s %d] read rtc power on offset = %d, type = %d\n", __func__, __LINE__, offset, type);
+
+		sys_lseek(fd, offset, 0);
+
+		if (sys_read(fd, buf, FTM_RTC_READ_SIZE) != FTM_RTC_READ_SIZE)
+			pr_err("[%s %d] sys_read error, rtc power on alarm error\n", __func__, __LINE__);
+		else {
+			read_value = simple_strtoul(buf, NULL, 10);
+			pr_info("[%s %d] read value = %s(%ld)\n", __func__, __LINE__, buf, read_value);
+
+			if (type == LG_RTC_POWER_ON_ENABLE)
+				alarm->enabled = (unsigned char)read_value;
+			else if (type == LG_RTC_POWER_ON_TIME)
+				rtc_time_to_tm(read_value, &alarm->time);
+		}
+
+exit:
+		sys_close(fd);
+	}
+
+	set_fs(old_fs);
+
+	return read_value;
+
+}
+EXPORT_SYMBOL_GPL(read_rtc_pwron_in_misc);
+*/
 #endif
 
 static int rtc_dev_open(struct inode *inode, struct file *file)
@@ -421,31 +476,20 @@ static long rtc_dev_ioctl(struct file *file,
 
 	case RTC_AIE_ON:
 		mutex_unlock(&rtc->ops_lock);
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-		if(poweron_alarm == 0) {
-			poweron_alarm = 1;
-		}
-
-		pr_info("[%s %d] RTC_AIE_ON (%d),poweron_alarm (%d)\n", __func__, __LINE__,
-					g_poalarm.enabled, poweron_alarm);
+#ifdef CONFIG_RTC_PWROFF_ALARM
+		pr_info("[%s %d] RTC_AIE_ON (%d)\n", __func__, __LINE__, g_poalarm.enabled);
 #endif
 		return rtc_alarm_irq_enable(rtc, 1);
 
 	case RTC_AIE_OFF:
 		mutex_unlock(&rtc->ops_lock);
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-		if(poweron_alarm == 1) {
-			poweron_alarm = 0;
-		}
-
-		if (g_poalarm.enabled) {
+#ifdef CONFIG_RTC_PWROFF_ALARM
+		pr_info("[%s %d] RTC_AIE_OFF (%d)\n", __func__, __LINE__, g_poalarm.enabled);
+/*		if (g_poalarm.enabled) {
 			g_poalarm.enabled = 0;
-			write_rtc_pwron_in_misc(&g_poalarm);
+			write_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_ENABLE);
 			rtc_set_po_alarm(rtc, &g_poalarm);
-		}
-
-		pr_info("[%s %d] RTC_AIE_OFF (%d),poweron_alarm (%d)\n", __func__, __LINE__,
-					g_poalarm.enabled, poweron_alarm);
+		}*/
 #endif
 		return rtc_alarm_irq_enable(rtc, 0);
 
@@ -491,7 +535,7 @@ static long rtc_dev_ioctl(struct file *file,
 
 		return rtc_set_alarm(rtc, &alarm);
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	case RTC_DEVICE_UP:
 		mutex_unlock(&rtc->ops_lock);
 		if (copy_from_user(&g_poalarm, uarg, sizeof(g_poalarm))) {
@@ -504,7 +548,8 @@ static long rtc_dev_ioctl(struct file *file,
 			alarm.time.tm_hour, alarm.time.tm_min,
 			alarm.time.tm_sec, alarm.time.tm_mday,
 			alarm.time.tm_mon, alarm.time.tm_year);
-		write_rtc_pwron_in_misc(&g_poalarm);
+		/*write_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_ENABLE);*/
+		/*write_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_TIME);*/
 
 		return rtc_set_po_alarm(rtc, &g_poalarm);
 #endif
@@ -624,7 +669,7 @@ void __init rtc_dev_init(void)
 		printk(KERN_ERR "%s: failed to allocate char dev region\n",
 			__FILE__);
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	memset(&g_poalarm, 0, sizeof(g_poalarm));
 #endif
 }

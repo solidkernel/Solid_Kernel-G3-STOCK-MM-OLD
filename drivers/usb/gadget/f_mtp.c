@@ -106,7 +106,6 @@ struct mtp_dev {
 	struct usb_ep *ep_intr;
 
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
-	bool first_mtp_binded;
 	int allocated_func;
 	/*ep for swap*/
 	struct usb_ep *ep_in1;
@@ -1283,7 +1282,7 @@ static void send_file_work(struct work_struct *data)
 
 	DBG(cdev, "send_file_work(%lld %lld)\n", offset, count);
 #ifdef CONFIG_USB_G_LGE_MTP_PROFILING
-	if (!ktime_to_ms(dev->perf.first_start_rtime)) {
+	if(!ktime_to_ms(dev->perf.first_start_rtime)) {
 		dev->perf.first_start_rtime = ktime_get();
 		dev->perf.r_count = 0;
 	}
@@ -1419,7 +1418,7 @@ static void receive_file_work(struct work_struct *data)
 
 	DBG(cdev, "receive_file_work(%lld)\n", count);
 #ifdef CONFIG_USB_G_LGE_MTP_PROFILING
-	if (!ktime_to_ms(dev->perf.first_start_wtime)) {
+	if(!ktime_to_ms(dev->perf.first_start_wtime)) {
 		dev->perf.first_start_wtime = ktime_get();
 		dev->perf.w_count = 0;
 	}
@@ -1812,8 +1811,6 @@ static int multi_mtp_bind(struct mtp_dev	*dev, struct usb_function *f, struct us
 #ifdef CONFIG_USB_G_LGE_ANDROID
 	/* for ptp & MS desc */
 	ptp_interface_desc2.bInterfaceNumber = id;
-	if (dev->first_mtp_binded == false)
-		mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
 #endif
 	/* allocate endpoints */
 	ret = mtp_create_endpoints_only(dev, &mtp_fullspeed_in_desc2,
@@ -1821,11 +1818,7 @@ static int multi_mtp_bind(struct mtp_dev	*dev, struct usb_function *f, struct us
 	if (ret)
 		return ret;
 	mtp_ep_backup(dev, f->name);
-	if (dev->first_mtp_binded == false) {
-		ret = mtp_req_alloc(dev);
-		if (ret)
-			return ret;
-	}
+
 	/* support high speed hardware */
 	if (gadget_is_dualspeed(c->cdev->gadget)) {
 		mtp_highspeed_in_desc2.bEndpointAddress =
@@ -1893,7 +1886,6 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	ret = mtp_req_alloc(dev);
 	if (ret)
 		return ret;
-	dev->first_mtp_binded = true;
 #else
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
 			&mtp_fullspeed_out_desc, &mtp_intr_desc);
@@ -1951,7 +1943,6 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	dev->state = STATE_OFFLINE;
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	dev->allocated_func = 0;
-	dev->first_mtp_binded = false;
 #endif
 }
 
@@ -1965,8 +1956,9 @@ static int mtp_function_set_alt(struct usb_function *f,
 	DBG(cdev, "mtp_function_set_alt intf: %d alt: %d\n", intf, alt);
 #ifdef CONFIG_USB_G_LGE_MULTIPLE_CONFIGURATION
 	mtp_ep_swap(dev, f->config->bConfigurationValue);
-	if ((dev->first_mtp_binded == true) && f->config->bConfigurationValue == 2)
+	if (f->config->bConfigurationValue == 2)
 		mtp_ep_yield_req(dev);
+	dev->allocated_func = f->config->bConfigurationValue;
 #endif
 
 	ret = config_ep_by_speed(cdev->gadget, f, dev->ep_in);
@@ -1991,9 +1983,6 @@ static int mtp_function_set_alt(struct usb_function *f,
 		usb_ep_disable(dev->ep_in);
 		return ret;
 	}
-#ifdef CONFIG_USB_G_LGE_ANDROID
-	if(!lge_get_laf_mode())
-#endif
 	ret = usb_ep_enable(dev->ep_out);
 	if (ret) {
 		ERROR(cdev, "failed to enable ep %s, result %d\n",
@@ -2207,15 +2196,15 @@ static ssize_t debug_profile_read(struct file *file, char __user *ubuf,
 	file_ready_wtime = ktime_to_ms(ktime_sub(ktime_sub(dev->perf.last_end_wtime,
 					dev->perf.first_start_wtime), dev->perf.t_receive_time));
 	fr_avg_rtime = dev->perf.r_count ?
-		DIV_ROUND_UP_ULL(file_ready_rtime, dev->perf.r_count) : 0;
+		DIV_ROUND_UP_ULL(file_ready_rtime, dev->perf.r_count): 0;
 	fr_avg_wtime = dev->perf.w_count ?
-		DIV_ROUND_UP_ULL(file_ready_wtime, dev->perf.w_count) : 0;
+		DIV_ROUND_UP_ULL(file_ready_wtime, dev->perf.w_count): 0;
 
 	wtemp = receive_time ?
 		DIV_ROUND_UP_ULL(wbytes, receive_time) * 1000 / 1024 : 0;
 	rtemp = send_time + file_ready_rtime ?
 		DIV_ROUND_UP_ULL(rbytes, send_time) * 1000 / 1024 : 0;
-	t_wtemp = t_receive_time + file_ready_wtime ?
+	t_wtemp = t_receive_time + file_ready_wtime?
 		DIV_ROUND_UP_ULL(t_wbytes, t_receive_time + file_ready_wtime) * 1000 / 1024 : 0;
 	t_rtemp = t_send_time ?
 		DIV_ROUND_UP_ULL(t_rbytes, t_send_time + file_ready_rtime) * 1000 / 1024 : 0 ;

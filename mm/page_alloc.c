@@ -657,8 +657,6 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 	int migratetype = 0;
 	int batch_free = 0;
 	int to_free = count;
-	int free = 0;
-	int cma_free = 0;
 	int mt = 0;
 
 	spin_lock(&zone->lock);
@@ -689,23 +687,17 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 		do {
 			page = list_entry(list->prev, struct page, lru);
 			mt = get_pageblock_migratetype(page);
-			if (likely(mt != MIGRATE_ISOLATE))
-				mt = page_private(page);
-
 			/* must delete as __free_one_page list manipulates */
 			list_del(&page->lru);
 			/* MIGRATE_MOVABLE list may include MIGRATE_RESERVEs */
-			__free_one_page(page, zone, 0, mt);
-			trace_mm_page_pcpu_drain(page, 0, mt);
-			if (likely(mt != MIGRATE_ISOLATE)) {
-				free++;
-				if (is_migrate_cma(mt))
-					cma_free++;
-			}
+			__free_one_page(page, zone, 0, page_private(page));
+			trace_mm_page_pcpu_drain(page, 0, page_private(page));
+			if (is_migrate_cma(mt))
+				__mod_zone_page_state(zone,
+				NR_FREE_CMA_PAGES, 1);
 		} while (--to_free && --batch_free && !list_empty(list));
 	}
-	__mod_zone_page_state(zone, NR_FREE_PAGES, free);
-	__mod_zone_page_state(zone, NR_FREE_CMA_PAGES, cma_free);
+	__mod_zone_page_state(zone, NR_FREE_PAGES, count);
 	spin_unlock(&zone->lock);
 }
 
@@ -5064,26 +5056,6 @@ early_param("kernelcore", cmdline_parse_kernelcore);
 early_param("movablecore", cmdline_parse_movablecore);
 
 #endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
-
-unsigned long free_reserved_area(unsigned long start, unsigned long end,
-				 int poison, char *s)
-{
-	unsigned long pages, pos;
-
-	pos = start = PAGE_ALIGN(start);
-	end &= PAGE_MASK;
-	for (pages = 0; pos < end; pos += PAGE_SIZE, pages++) {
-		if (poison)
-			memset((void *)pos, poison, PAGE_SIZE);
-		free_reserved_page(virt_to_page(pos));
-	}
-
-	if (pages && s)
-		pr_info("Freeing %s memory: %ldK (%lx - %lx)\n",
-			s, pages << (PAGE_SHIFT - 10), start, end);
-
-	return pages;
-}
 
 /**
  * set_dma_reserve - set the specified number of pages reserved in the first zone

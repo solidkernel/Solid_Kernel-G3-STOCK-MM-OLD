@@ -2684,7 +2684,7 @@ static int max77819_charger_ac_get_property(struct power_supply *psy,
 		container_of(psy, struct max77819_charger, psy);
 	int rc = 0;
 	int value;
-#if defined(CONFIG_LGE_PM_CHARGING_SUPPORT_PHIHONG)
+#if defined(CONFIG_SUPPORT_PHIHONG)
 	/* phihong crashes here. Do not remove next 4 lines */
 	if (psp == POWER_SUPPLY_PROP_CYCLE_COUNT) {
 		val->intval = 0;

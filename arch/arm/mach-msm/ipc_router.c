@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2084,12 +2084,12 @@ static void do_read_data(struct work_struct *work)
 		    pkt->length > MAX_IPC_PKT_SIZE) {
 			pr_err("%s: Invalid pkt length %d\n",
 				__func__, pkt->length);
-			goto read_next_pkt1;
+			goto fail_data;
 		}
 
 		ret = extract_header(pkt);
 		if (ret < 0)
-			goto read_next_pkt1;
+			goto fail_data;
 		hdr = &(pkt->hdr);
 		RAW("ver=%d type=%d src=%d:%08x crx=%d siz=%d dst=%d:%08x\n",
 		     hdr->version, hdr->type, hdr->src_node_id,
@@ -2100,12 +2100,14 @@ static void do_read_data(struct work_struct *work)
 		    ((hdr->type == IPC_ROUTER_CTRL_CMD_RESUME_TX) ||
 		     (hdr->type == IPC_ROUTER_CTRL_CMD_DATA))) {
 			forward_msg(xprt_info, pkt);
-			goto read_next_pkt1;
+			release_pkt(pkt);
+			continue;
 		}
 
 		if (hdr->type != IPC_ROUTER_CTRL_CMD_DATA) {
 			process_control_msg(xprt_info, pkt);
-			goto read_next_pkt1;
+			release_pkt(pkt);
+			continue;
 		}
 #if defined(CONFIG_MSM_SMD_LOGGING)
 #if defined(DEBUG)
@@ -2128,7 +2130,9 @@ static void do_read_data(struct work_struct *work)
 		if (!port_ptr) {
 			pr_err("%s: No local port id %08x\n", __func__,
 				hdr->dst_port_id);
-			goto read_next_pkt2;
+			up_read(&local_ports_lock_lha2);
+			release_pkt(pkt);
+			return;
 		}
 
 		down_read(&routing_table_lock_lha3);
@@ -2142,20 +2146,21 @@ static void do_read_data(struct work_struct *work)
 				pr_err("%s: Rmt Prt %08x:%08x create failed\n",
 					__func__, hdr->src_node_id,
 					hdr->src_port_id);
-				goto read_next_pkt3;
+				up_read(&routing_table_lock_lha3);
+				up_read(&local_ports_lock_lha2);
+				release_pkt(pkt);
+				return;
 			}
 		}
 		up_read(&routing_table_lock_lha3);
 		post_pkt_to_port(port_ptr, pkt, 0);
 		up_read(&local_ports_lock_lha2);
-		continue;
-read_next_pkt3:
-		up_read(&routing_table_lock_lha3);
-read_next_pkt2:
-		up_read(&local_ports_lock_lha2);
-read_next_pkt1:
-		release_pkt(pkt);
 	}
+	return;
+
+fail_data:
+	release_pkt(pkt);
+	pr_err("ipc_router has died\n");
 }
 
 int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
@@ -3325,7 +3330,7 @@ static int __init msm_ipc_router_init(void)
 
 	msm_ipc_router_debug_mask |= SMEM_LOG;
 	ipc_rtr_log_ctxt = ipc_log_context_create(IPC_RTR_LOG_PAGES,
-						  "ipc_router", 0);
+						  "ipc_router");
 	if (!ipc_rtr_log_ctxt)
 		pr_err("%s: Unable to create IPC logging for IPC RTR",
 			__func__);

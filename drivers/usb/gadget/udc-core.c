@@ -240,7 +240,6 @@ err3:
 
 err2:
 	put_device(&udc->dev);
-	kfree(udc);
 
 err1:
 	return ret;

@@ -112,18 +112,17 @@ static inline int lm3631_bl_set_brightness(struct lm3631_bl *lm3631_bl, int val)
 				 data);
 }
 
-void lm3631_lcd_backlight_set_level(int level)
-{
+void lm3631_lcd_backlight_set_level(int level) {
 	struct lm3631_bl *lm3631_bl = bl_get_data(lm3631_device);
 	int ret = 0;
 #ifdef CONFIG_MACH_LGE
 	struct lm3631_backlight_platform_data *pdata = lm3631_bl->pdata;
 	int cal_level;
 
-	pr_info("%s : level is %d\n", __func__, level);
+	pr_info("%s : level is %d\n",__func__, level);
 
-	if (lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY) {
-		pr_info("%s : factory mode! Will not turn on backligh.\n", __func__);
+	if(lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY){
+		pr_info("%s : factory mode! Will not turn on backligh.\n",__func__);
 		level = 0;
 	}
 #ifdef CONFIG_MACH_LGE_BACKLIGHT_SUPPORT
@@ -140,19 +139,20 @@ void lm3631_lcd_backlight_set_level(int level)
 			ret = lm3631_bl_enable(lm3631_bl, 1);
 	}
 
-	if (ret)
+	if (ret) {
 		pr_err("%s DEBUG error enable or disable backlight\n", __func__);
+	}
 
 #ifdef CONFIG_MACH_LGE
 	if (level >= pdata->blmap_size)
 		level = pdata->blmap_size - 1;
 
-	if (pdata->blmap)
+	if(pdata->blmap)
 		cal_level = pdata->blmap[level];
 	else
 		cal_level = level;
 
-	if (cal_level == cur_main_lcd_level)
+	if(cal_level == cur_main_lcd_level)
 		return;
 
 	ret = lm3631_bl_set_brightness(lm3631_bl, cal_level);
@@ -160,9 +160,10 @@ void lm3631_lcd_backlight_set_level(int level)
 	ret = lm3631_bl_set_brightness(lm3631_bl, level);
 #endif
 
-	if (ret)
+	if (ret) {
 		pr_err("%s DEBUG error set backlight\n", __func__);
-}
+	}
+};
 EXPORT_SYMBOL(lm3631_lcd_backlight_set_level);
 
 static int lm3631_bl_update_status(struct backlight_device *bl_dev)
@@ -180,13 +181,13 @@ static int lm3631_bl_update_status(struct backlight_device *bl_dev)
 		bl_dev->props.brightness = 0;
 
 	brt = bl_dev->props.brightness;
-	if (brt == cur_main_lcd_level)
+	if(brt == cur_main_lcd_level)
 		return 0;
 
 	if (brt > 0) {
 		if (backlight_status == BL_OFF)
 			ret = lm3631_bl_enable(lm3631_bl, 1);
-	} else {
+	}else{
 		if (backlight_status == BL_ON)
 			ret = lm3631_bl_enable(lm3631_bl, 0);
 	}
@@ -209,20 +210,20 @@ static int lm3631_bl_get_brightness(struct backlight_device *bl_dev)
 }
 
 
-static void lm3631_lcd_backlight_set_level_nomapping(int level)
-{
+static void lm3631_lcd_backlight_set_level_nomapping(int level){
 	struct lm3631_bl *lm3631_bl = bl_get_data(lm3631_device);
 	int ret;
-	pr_err("%s : level is %d\n", __func__, level);
+	pr_err("%s : level is %d\n",__func__, level);
 
 	cur_main_lcd_level = level;
 
-	if (level > 2047)
+	if(level > 2047)
 		level = 2047;
 
 	ret = lm3631_bl_set_brightness(lm3631_bl, level);
-	if (ret)
-		pr_err("%s DEBUG error set backlight\n", __func__);
+	if (ret){
+		pr_err("%s DEBUG error set backlight\n",__func__);
+	}
 };
 
 static const struct backlight_ops lm3631_bl_ops = {
@@ -266,9 +267,9 @@ static void lm3631_bl_unregister(struct lm3631_bl *lm3631_bl)
 
 static int lm3631_bl_set_ovp(struct lm3631_bl *lm3631_bl)
 {
-	/* Set OVP to 25V by default */
-	return lm3631_update_bits(lm3631_bl->lm3631, LM3631_REG_BL_BOOST,
-				LM3631_BOOST_OVP_MASK, LM3631_BOOST_OVP_25V);
+    /* Set OVP to 25V by default */
+    return lm3631_update_bits(lm3631_bl->lm3631, LM3631_REG_BL_BOOST,
+                                LM3631_BOOST_OVP_MASK, LM3631_BOOST_OVP_25V);
 }
 
 static int lm3631_bl_set_ctrl_mode(struct lm3631_bl *lm3631_bl)
@@ -315,9 +316,9 @@ static int lm3631_bl_configure(struct lm3631_bl *lm3631_bl)
 {
 	int ret;
 
-	ret = lm3631_bl_set_ovp(lm3631_bl);
-	if (ret)
-		return ret;
+    ret = lm3631_bl_set_ovp(lm3631_bl);
+    if (ret)
+        return ret;
 
 	ret = lm3631_bl_set_ctrl_mode(lm3631_bl);
 	if (ret)
@@ -343,7 +344,7 @@ static ssize_t lcd_backlight_store_level(struct device *dev,
 {
 	int level;
 
-	if (!count)
+	if(!count)
 		return -EINVAL;
 
 	level = simple_strtoul(buf, NULL, 10);
@@ -360,7 +361,7 @@ static int lm3631_bl_parse_dt(struct device *dev, struct lm3631_bl *lm3631_bl)
 	struct device_node *node = dev->of_node;
 	struct lm3631_backlight_platform_data *pdata;
 	int i;
-	u32 *array;
+	u32* array;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -384,7 +385,7 @@ static int lm3631_bl_parse_dt(struct device *dev, struct lm3631_bl *lm3631_bl)
 	of_property_read_u32(node, "blmap_size",
 			&pdata->blmap_size);
 
-	if (pdata->blmap_size) {
+	if(pdata->blmap_size){
 		array = kzalloc(sizeof(u32) * pdata->blmap_size, GFP_KERNEL);
 		if (!array) {
 			pr_err("no more mem for array\n");
@@ -392,7 +393,7 @@ static int lm3631_bl_parse_dt(struct device *dev, struct lm3631_bl *lm3631_bl)
 		}
 		of_property_read_u32_array(node, "blmap", array, pdata->blmap_size);
 		pdata->blmap = kzalloc(sizeof(u16) * pdata->blmap_size, GFP_KERNEL);
-		if (!pdata->blmap) {
+		if (!pdata->blmap){
 			pr_err("no more mem for blmap\n");
 			kfree(array);
 			return -ENOMEM;
@@ -402,7 +403,7 @@ static int lm3631_bl_parse_dt(struct device *dev, struct lm3631_bl *lm3631_bl)
 			pdata->blmap[i] = (u16)array[i];
 
 		kfree(array);
-	} else {
+	}else{
 		pr_err("not defined blmap_size");
 	}
 
@@ -456,15 +457,9 @@ static int lm3631_bl_probe(struct platform_device *pdev)
 
 	device_create_file(&pdev->dev, &dev_attr_bl_level);
 
-#ifdef CONFIG_LGE_LCD_OFF_DIMMING
-	if ((lge_get_bootreason() == 0x77665560) || (lge_get_bootreason() == 0x77665561)) {
-		lm3631_bl->bl_dev->props.brightness = 50;
-		pr_info("%s : fota reboot - backlight set 50\n", __func__);
-	}
-#endif
-	if (lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY) {
+	if(lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY){
 		lm3631_bl->bl_dev->props.brightness = 0;
-		pr_info("%s : 130K is connected\n", __func__);
+		pr_info("%s : 130K is connected\n",__func__);
 	} else {
 		backlight_status = BL_ON;
 		backlight_update_status(lm3631_bl->bl_dev);

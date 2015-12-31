@@ -1006,13 +1006,9 @@ static int do_test(int m)
 		ret += tcrypt_test("ecb(aes)");
 		ret += tcrypt_test("cbc(aes)");
 		ret += tcrypt_test("lrw(aes)");
-#ifdef CONFIG_CRYPTO_XTS
 		ret += tcrypt_test("xts(aes)");
-#endif
-#ifdef CONFIG_CRYPTO_CTR
 		ret += tcrypt_test("ctr(aes)");
 		ret += tcrypt_test("rfc3686(ctr(aes))");
-#endif
 		break;
 
 	case 11:
@@ -1114,9 +1110,7 @@ static int do_test(int m)
 		break;
 
 	case 35:
-#ifdef CONFIG_CRYPTO_GCM
 		ret += tcrypt_test("gcm(aes)");
-#endif
 		break;
 
 	case 36:
@@ -1124,10 +1118,8 @@ static int do_test(int m)
 		break;
 
 	case 37:
-#ifdef CONFIG_CRYPTO_CCM
 		ret += tcrypt_test("ccm(aes)");
 		break;
-#endif
 
 	case 38:
 		ret += tcrypt_test("cts(cbc(aes))");
@@ -1158,10 +1150,8 @@ static int do_test(int m)
 		break;
 
 	case 45:
-#ifdef CONFIG_CRYPTO_CCM
 		ret += tcrypt_test("rfc4309(ccm(aes))");
 		break;
-#endif
 
 	case 100:
 		ret += tcrypt_test("hmac(md5)");
@@ -1208,9 +1198,7 @@ static int do_test(int m)
 		break;
 
 	case 151:
-#ifdef CONFIG_CRYPTO_GCM
 		ret += tcrypt_test("rfc4106(gcm(aes))");
-#endif
 		break;
 
 	case 200:
@@ -1600,30 +1588,15 @@ static int __init tcrypt_mod_init(void)
 			goto err_free_tv;
 	}
 
-#ifdef CONFIG_CRYPTO_FIPS
-	testmgr_crypto_proc_init();
-	printk(KERN_INFO "FIPS: running power-on self-tests\n");
-#endif
-
 	if (alg)
 		err = do_alg_test(alg, type, mask);
 	else
 		err = do_test(mode);
 
-#ifdef CONFIG_CRYPTO_FIPS
-	if (fips_enabled) {
-		fips_integrity_check();
-		if (fips_error()) {
-			printk(KERN_ERR "FIPS: ERROR! could not start FIPS mode\n");
-			if (fips_panic) 
-				panic("FIPS: ERROR! could not start FIPS mode\n");
-		} else {
-			printk(KERN_INFO "FIPS: now running in FIPS mode\n");
-		}
-	} else {
-		printk(KERN_INFO "FIPS: running in non-FIPS mode\n");
+	if (err) {
+		printk(KERN_ERR "tcrypt: one or more tests failed!\n");
+		goto err_free_tv;
 	}
-#endif
 
 	/* We intentionaly return -EAGAIN to prevent keeping the module,
 	 * unless we're running in fips mode. It does all its work from

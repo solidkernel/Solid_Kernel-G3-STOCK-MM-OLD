@@ -50,6 +50,7 @@
 #include <linux/fb.h>
 #endif
 
+//#include "lge_touch_notify.h"
 #include <linux/input/lge_touch_notify.h>
 
 struct touch_device_driver      *touch_device_func;
@@ -60,7 +61,7 @@ int quick_cover_status = 0;
 int knock_mode = 0;
 extern int boot_mode;
 extern int mfts_enable;
-extern int previous_pm_suspend;
+
 struct timeval t_ex_debug[EX_PROFILE_MAX];
 bool ghost_detection = 0;
 bool long_press_check = 0;
@@ -90,6 +91,7 @@ extern bool i2c_suspended;
  * usage: echo [debug_mask] > /sys/module/lge_touch_core/parameters/debug_mask
  */
 u32 touch_debug_mask = DEBUG_BASE_INFO | DEBUG_LPWG_COORDINATES;
+
 module_param_named(debug_mask, touch_debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 
 #ifdef LGE_TOUCH_TIME_DEBUG
@@ -965,10 +967,8 @@ void release_all_touch_event(struct lge_touch_data *ts)
 	}
 
 	memset(&ts->ts_curr_data, 0, sizeof(struct touch_data));
-	if (ts->ts_prev_data.total_num) {
+	if (ts->ts_prev_data.total_num)
 		report_event(ts);
-		ts->ts_prev_data.total_num = 0;
-	}
 	if (ts->pdata->caps->button_support)
 		key_event(ts);
 
@@ -1028,12 +1028,18 @@ static int interrupt_control(struct lge_touch_data *ts, int on_off)
 
 	if (atomic_read(&ts->state.interrupt_state) != on_off) {
 		atomic_set(&ts->state.interrupt_state, on_off);
-		if (ts->pdata->role->wake_up_by_touch)
+
+		if (on_off) {
+			enable_irq(ts->client->irq);
+		} else {
+			TOUCH_INFO_MSG("%s : disable irq nosync\n", __func__);
+			disable_irq_nosync(ts->client->irq);
+		}
+
+		if (ts->pdata->role->wake_up_by_touch) {
 			on_off ? enable_irq_wake(ts->client->irq)
 				: disable_irq_wake(ts->client->irq);
-		else
-			on_off ? enable_irq(ts->client->irq)
-				: disable_irq(ts->client->irq);
+		}
 	}
 
 	TOUCH_DEBUG(DEBUG_BASE_INFO, "interrupt_state[%d]\n", on_off);
@@ -1054,8 +1060,6 @@ static int interrupt_control(struct lge_touch_data *ts, int on_off)
 static void safety_reset(struct lge_touch_data *ts)
 {
 	u32 ret = 0;
-	int prev_power_state = atomic_read(&ts->state.power_state);
-
 	TOUCH_TRACE();
 
 	TOUCH_INFO_MSG("safety_reset start\n");
@@ -1085,8 +1089,6 @@ static void safety_reset(struct lge_touch_data *ts)
 		msleep(ts->pdata->role->reset_delay);
 		DO_SAFE(power_control(ts, POWER_ON), error);
 		msleep(ts->pdata->role->booting_delay);
-		if (prev_power_state != POWER_ON)
-			DO_SAFE(power_control(ts, prev_power_state), error);
 		break;
 	default:
 		break;
@@ -1862,13 +1864,18 @@ irqreturn_t touch_irq_handler(int irq, void *dev_id)
 
 	TOUCH_TRACE();
 
-	if (atomic_read(&ts->state.pm_state) >= PM_SUSPEND) {
-		TOUCH_INFO_MSG("interrupt in suspend[%d]\n",
-				atomic_read(&ts->state.pm_state));
-		previous_pm_suspend = 1;
-		atomic_set(&ts->state.pm_state, PM_SUSPEND_IRQ);
-		wake_lock_timeout(&ts->lpwg_wake_lock, msecs_to_jiffies(1000));
+	if (atomic_read(&ts->state.power_state) == (ts->pdata->role->use_sleep_mode ? POWER_SLEEP : POWER_OFF)) {
+		TOUCH_INFO_MSG("interrupt in suspend - lpwg_ctrl.is_suspend[%d]\n",
+				atomic_read(&ts->state.power_state));
 		return IRQ_HANDLED;
+	} else {
+		if (atomic_read(&ts->state.pm_state) >= PM_SUSPEND) {
+			TOUCH_INFO_MSG("interrupt in suspend[%d]\n",
+					atomic_read(&ts->state.pm_state));
+			atomic_set(&ts->state.pm_state, PM_SUSPEND_IRQ);
+			wake_lock_timeout(&ts->lpwg_wake_lock, msecs_to_jiffies(1000));
+			return IRQ_HANDLED;
+		} 
 	}
 
 	return IRQ_WAKE_THREAD;
@@ -3247,8 +3254,6 @@ static int touch_resume(struct device *dev)
 	TOUCH_TRACE();
 	TOUCH_INFO_MSG("%s : touch_resume start\n", __func__);
 
-	previous_pm_suspend = 0;
-
 	if(!boot_mode) {
 		TOUCH_INFO_MSG("%s  : Ignore resume in Chargerlogo mode\n", __func__);
 		return 0;
@@ -3264,7 +3269,6 @@ static int touch_resume(struct device *dev)
 
 	mutex_lock(&ts->pdata->thread_lock);
 
-	#if 0
 	if (ts->pdata->role->use_sleep_mode) {
 		power_control(ts, POWER_OFF);
 		power_control(ts, POWER_ON);
@@ -3272,7 +3276,6 @@ static int touch_resume(struct device *dev)
 		power_control(ts, POWER_ON);
 	}
 	msleep(ts->pdata->role->booting_delay);
-	#endif
 
 	if (atomic_read(&ts->state.upgrade_state) != UPGRADE_START) {
 		touch_device_func->resume(ts->client);
@@ -3281,10 +3284,8 @@ static int touch_resume(struct device *dev)
 				"'[Touch]%s:F/W-upgrade' is not finished.\n",
 				__func__);
 
-	#if 0
 	if (touch_ic_init(ts, 0) < 0)
 		TOUCH_ERR_MSG("%s : touch ic init fail\n", __func__);
-	#endif
 
 	TOUCH_INFO_MSG("%s : touch_resume done\n", __func__);
 	mutex_unlock(&ts->pdata->thread_lock);
@@ -3333,28 +3334,18 @@ static int fb_notifier_callback(struct notifier_block *self,
 static int lcd_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *data)
 {
-	struct lge_touch_data *ts =
-		container_of(this, struct lge_touch_data, notif);
-
-	mutex_lock(&ts->pdata->thread_lock);
 	TOUCH_DEBUG(DEBUG_BASE_INFO,"%s: event = %lu\n", __func__, event);
 	switch (event) {
 		case LCD_EVENT_TOUCH_LPWG_ON:
+			mdelay(100);
 			TOUCH_DEBUG(DEBUG_BASE_INFO, "LCD_EVENT_TOUCH_LPWG_ON\n");
 			touch_device_func->lpwg(ts_data->client, LPWG_INCELL_LPWG_ON, 0, NULL);
 			break;
 		case LCD_EVENT_TOUCH_LPWG_OFF:
 			TOUCH_DEBUG(DEBUG_BASE_INFO, "LCD_EVENT_TOUCH_LPWG_OFF\n");
-			previous_pm_suspend = 0;
-			power_control(ts, POWER_OFF);
-			msleep(ts->pdata->role->reset_delay);
-			power_control(ts, POWER_ON);
-			msleep(ts->pdata->role->booting_delay);
-			touch_ic_init(ts, 0);
 			touch_device_func->lpwg(ts_data->client, LPWG_INCELL_LPWG_OFF, 0, NULL);
 			break;
 	}
-	mutex_unlock(&ts->pdata->thread_lock);
 	return 0;
 }
 static int touch_probe(struct i2c_client *client,
@@ -3513,7 +3504,7 @@ static int touch_probe(struct i2c_client *client,
 		ts->pdata->inbuilt_fw_name,
 		len);
 
-	queue_delayed_work(touch_wq, &ts->work_upgrade, 0);
+	//queue_delayed_work(touch_wq, &ts->work_upgrade, 0);
 
 	if (ts->pdata->role->crack_detection->use_crack_mode)
 		queue_delayed_work(touch_wq, &ts->work_crack,
@@ -3542,11 +3533,6 @@ static int touch_probe(struct i2c_client *client,
 #endif
 	ts_data = ts;
 	is_probe = 1;
-
-#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_DISNEY)
-	touch_notifier_call_chain(TOUCH_EVENT_REGISTER_DONE, NULL);
-#endif
-
 	TOUCH_INFO_MSG("touch_probe done\n");
 
 	return 0;

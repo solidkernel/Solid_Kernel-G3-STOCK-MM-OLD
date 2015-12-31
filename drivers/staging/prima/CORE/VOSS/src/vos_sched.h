@@ -42,6 +42,9 @@
    by vOSS.
     
   
+   Copyright 2008 (c) Qualcomm, Incorporated.  All Rights Reserved.
+   
+   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
@@ -68,12 +71,11 @@
   Include Files
   ------------------------------------------------------------------------*/
 #include <vos_event.h>
-#include <vos_nvitem.h>
-#include <vos_mq.h>
 #include "i_vos_types.h"
 #include "i_vos_packet.h"
 #include <linux/wait.h>
 #include <linux/wakelock.h>
+#include <vos_power.h>
 
 #define TX_POST_EVENT_MASK               0x001
 #define TX_SUSPEND_EVENT_MASK            0x002
@@ -258,6 +260,8 @@ typedef struct _VosWatchdogContext
 
    v_BOOL_t isFatalError;
 
+   vos_chip_reset_reason_type reason;
+
    /* Lock for preventing multiple reset being triggered simultaneously */
    spinlock_t wdLock;
 
@@ -334,11 +338,6 @@ typedef struct _VosContextType
    /* NV BIN Version */
    eNvVersionType     nvVersion;
 
-   /* Roam delay statistic enabled in ini*/
-   v_U8_t             roamDelayStatsEnabled;
-
-   /*Fw log complete Event*/
-   vos_event_t fwLogsComplete;
 } VosContextType, *pVosContextType;
 
 
@@ -496,11 +495,13 @@ void vos_sched_deinit_mqs (pVosSchedContext pSchedContext);
 void vos_sched_flush_mc_mqs  (pVosSchedContext pSchedContext);
 void vos_sched_flush_tx_mqs  (pVosSchedContext pSchedContext);
 void vos_sched_flush_rx_mqs  (pVosSchedContext pSchedContext);
+VOS_STATUS vos_watchdog_chip_reset ( vos_chip_reset_reason_type reason );
 void clearWlanResetReason(void);
 
 void vos_timer_module_init( void );
 VOS_STATUS vos_watchdog_wlan_shutdown(void);
 VOS_STATUS vos_watchdog_wlan_re_init(void);
+v_BOOL_t isWDresetInProgress(void);
 v_BOOL_t isSsrPanicOnFailure(void);
 void vos_ssr_protect(const char *caller_func);
 void vos_ssr_unprotect(const char *caller_func);

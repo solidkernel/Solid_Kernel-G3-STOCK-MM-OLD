@@ -233,7 +233,7 @@ int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 	 */
 	int dumpable = 0;
 	/* Don't let security modules deny introspection */
-	if (task == current)
+	if (same_thread_group(task, current))
 		return 0;
 	rcu_read_lock();
 	tcred = __task_cred(task);
@@ -573,6 +573,9 @@ static int ptrace_setoptions(struct task_struct *child, unsigned long data)
 	flags &= ~(PTRACE_O_MASK << PT_OPT_FLAG_SHIFT);
 	flags |= (data << PT_OPT_FLAG_SHIFT);
 	child->ptrace = flags;
+
+	if (data & PTRACE_O_TRACESECCOMP)
+		child->ptrace |= PT_TRACE_SECCOMP;
 
 	return 0;
 }

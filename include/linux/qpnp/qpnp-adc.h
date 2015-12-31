@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,7 +191,6 @@ enum qpnp_adc_calib_type {
  * %CHAN_PATH_SCALING2: ratio of {1, 4}
  * %CHAN_PATH_SCALING3: ratio of {1, 6}
  * %CHAN_PATH_SCALING4: ratio of {1, 20}
- * %CHAN_PATH_SCALING5: ratio of {1, 8}
  * %CHAN_PATH_NONE: Do not use this pre-scaling ratio type.
  *
  * The pre-scaling is applied for signals to be within the voltage range
@@ -203,7 +202,6 @@ enum qpnp_adc_channel_scaling_param {
 	PATH_SCALING2,
 	PATH_SCALING3,
 	PATH_SCALING4,
-	PATH_SCALING5,
 	PATH_SCALING_NONE,
 };
 
@@ -840,7 +838,6 @@ struct qpnp_vadc_chan_properties {
 	enum qpnp_adc_meas_timer_2		meas_interval2;
 	enum qpnp_adc_tm_channel_select		tm_channel_select;
 	enum qpnp_state_request			state_request;
-	enum qpnp_adc_calib_type		calib_type;
 	struct qpnp_vadc_linear_graph	adc_graph[2];
 };
 
@@ -884,7 +881,6 @@ struct qpnp_adc_amux {
 	enum qpnp_adc_scale_fn_type		adc_scale_fn;
 	enum qpnp_adc_fast_avg_ctl		fast_avg_setup;
 	enum qpnp_adc_hw_settle_time		hw_settle_time;
-	enum qpnp_adc_calib_type		calib_type;
 };
 
 /**
@@ -896,8 +892,7 @@ static const struct qpnp_vadc_scaling_ratio qpnp_vadc_amux_scaling_ratio[] = {
 	{1, 3},
 	{1, 4},
 	{1, 6},
-	{1, 20},
-	{1, 8}
+	{1, 20}
 };
 
 /**
@@ -1039,19 +1034,6 @@ struct qpnp_adc_amux_properties {
 int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
 				enum qpnp_vadc_channels channel,
 				struct qpnp_vadc_result *result);
-
-#ifdef CONFIG_LGE_PM
-/**
- * qpnp_vadc_read_lge() - Performs ADC read on the channel.
- *                        lge api for avoid qct api changed.
- * @dev:	Structure device for qpnp vadc
- * @channel:	Input channel to perform the ADC read.
- * @result:	Structure pointer of type adc_chan_result
- *		in which the ADC read results are stored.
- */
-int32_t qpnp_vadc_read_lge(enum qpnp_vadc_channels channel,
-				struct qpnp_vadc_result *result);
-#endif
 
 /**
  * qpnp_vadc_conv_seq_request() - Performs ADC read on the conversion
@@ -1252,17 +1234,6 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *dev, int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
-
-#ifdef CONFIG_LGE_PM
-/**
- * qpnp_vadc_is_ready() - Clients can use this API to check if the
- *			  device is ready to use.
- * @result:	0 on success and -EPROBE_DEFER when probe for the device
- *		has not occured.
- */
-int32_t qpnp_vadc_is_ready(void);
-#endif
-
 /**
  * qpnp_get_vadc() - Clients need to register with the vadc using the
  *		corresponding device instance it wants to read the channels
@@ -1545,11 +1516,6 @@ static inline int qpnp_adc_get_revid_version(struct device *dev)
 int32_t qpnp_iadc_read(struct qpnp_iadc_chip *dev,
 				enum qpnp_iadc_channels channel,
 				struct qpnp_iadc_result *result);
-
-#ifdef CONFIG_LGE_PM
-int32_t qpnp_iadc_read_lge(enum qpnp_iadc_channels channel,
-        struct qpnp_iadc_result *result);
-#endif
 /**
  * qpnp_iadc_get_rsense() - Reads the RDS resistance value from the
 			trim registers.
@@ -1582,10 +1548,6 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_chip *dev,
  *		pointer used everytime client makes an ADC request.
  */
 struct qpnp_iadc_chip *qpnp_get_iadc(struct device *dev, const char *name);
-#ifdef CONFIG_MACH_LGE
-int32_t qpnp_iadc_is_ready(void);
-#endif
-
 /**
  * qpnp_iadc_vadc_sync_read() - Performs synchronous VADC and IADC read.
  *		The api is to be used only by the BMS to perform

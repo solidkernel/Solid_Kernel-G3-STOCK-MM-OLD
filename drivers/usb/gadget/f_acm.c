@@ -193,7 +193,7 @@ acm_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	/* .bFirstInterface =	DYNAMIC, */
-	.bInterfaceCount = 	2,	/* control + data */
+	.bInterfaceCount = 	2,	// control + data
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
 	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
@@ -939,24 +939,16 @@ static inline bool can_support_cdc(struct usb_configuration *c)
  */
 static int lge_acm_desc_change(struct usb_function *f, bool is_mac)
 {
-	struct usb_composite_dev *cdev = f->config->cdev;
-
 	if (is_mac == true) {
-		if (gadget_is_superspeed(cdev->gadget) && f->ss_descriptors)
-			((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
-		if (gadget_is_dualspeed(cdev->gadget) && f->hs_descriptors)
-			((struct usb_interface_descriptor *)f->hs_descriptors[1])->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
+		((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
+		((struct usb_interface_descriptor *)f->hs_descriptors[1])->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
 		((struct usb_interface_descriptor *)f->descriptors[1])->bInterfaceClass = USB_CLASS_VENDOR_SPEC;
-		pr_info("MAC ACM bInterfaceClass change to fs:%u\n",
-			((struct usb_interface_descriptor *)f->descriptors[1])->bInterfaceClass);
+		pr_info("MAC ACM bInterfaceClass change to %u \n", ((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass);
 	} else {
-		if (gadget_is_superspeed(cdev->gadget) && f->ss_descriptors)
-			((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass = USB_CLASS_COMM;
-		if (gadget_is_dualspeed(cdev->gadget) && f->hs_descriptors)
-			((struct usb_interface_descriptor *)f->hs_descriptors[1])->bInterfaceClass = USB_CLASS_COMM;
+		((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass = USB_CLASS_COMM;
+		((struct usb_interface_descriptor *)f->hs_descriptors[1])->bInterfaceClass = USB_CLASS_COMM;
 		((struct usb_interface_descriptor *)f->descriptors[1])->bInterfaceClass = USB_CLASS_COMM;
-		pr_info("WIN/LINUX ACM bInterfaceClass change to fs:%u\n",
-			((struct usb_interface_descriptor *)f->descriptors[1])->bInterfaceClass);
+		pr_info("WIN/LINUX ACM bInterfaceClass change to %u \n", ((struct usb_interface_descriptor *)f->ss_descriptors[1])->bInterfaceClass);
 	}
 	return 0;
 }

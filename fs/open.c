@@ -997,15 +997,16 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			} else {
 				fsnotify_open(f);
 				fd_install(fd, f);
-				/* LGE_CHANGE_S
-				 *
-				 * do read/mmap profiling during booting
-				 * in order to use the data as readahead args
-				 *
-				 * byungchul.park@lge.com 20120503
-				 */
-				sreadahead_prof( f, 0, 0);
-				/* LGE_CHANGE_E */
+                /* LGE_CHANGE_S
+                 *
+                 * do read/mmap profiling during booting
+                 * in order to use the data as readahead args
+                 *
+                 * byungchul.park@lge.com 20120503
+                 */
+                sreadahead_prof( f, 0, 0);
+                /* LGE_CHANGE_E */
+
 			}
 		}
 		putname(tmp);
@@ -1073,7 +1074,6 @@ int filp_close(struct file *filp, fl_owner_t id)
 		dnotify_flush(filp, id);
 		locks_remove_posix(filp, id);
 	}
-	security_file_close(filp);
 	fput(filp);
 	return retval;
 }

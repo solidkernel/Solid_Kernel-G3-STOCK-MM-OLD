@@ -169,6 +169,7 @@ typedef struct sCsrNeighborRoamControlInfo
     vos_timer_t                 neighborScanTimer;
     vos_timer_t                 neighborResultsRefreshTimer;
     vos_timer_t                 emptyScanRefreshTimer;
+    tCsrTimerInfo               neighborScanTimerInfo;
     tCsrNeighborRoamChannelInfo roamChannelInfo;
     tANI_U8                     currentNeighborLookupThreshold;
     tANI_BOOLEAN                scanRspPending;
@@ -205,7 +206,6 @@ typedef struct sCsrNeighborRoamControlInfo
     tSirMacAddr                 cfgRoambssId;
     vos_timer_t                 forcedInitialRoamTo5GHTimer;
     tANI_U8                     isForcedInitialRoamTo5GH;
-    tANI_U8                     lastSentCmd;
 } tCsrNeighborRoamControlInfo, *tpCsrNeighborRoamControlInfo;
 
 
@@ -220,7 +220,7 @@ void csrNeighborRoamPurgePreauthFailedList(tpAniSirGlobal pMac);
 VOS_STATUS csrNeighborRoamTransitToCFGChanScan(tpAniSirGlobal pMac);
 VOS_STATUS csrNeighborRoamTransitionToPreauthDone(tpAniSirGlobal pMac);
 eHalStatus csrNeighborRoamPrepareScanProfileFilter(tpAniSirGlobal pMac, tCsrScanResultFilter *pScanFilter);
-tANI_BOOLEAN csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSInfo pHandoffNode);
+void csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSInfo pHandoffNode);
 eHalStatus csrNeighborRoamPreauthRspHandler(tpAniSirGlobal pMac, tSirRetStatus limStatus);
 #ifdef WLAN_FEATURE_VOWIFI_11R
 tANI_BOOLEAN csrNeighborRoamIs11rAssoc(tpAniSirGlobal pMac);

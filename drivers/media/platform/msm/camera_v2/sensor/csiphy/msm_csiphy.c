@@ -15,7 +15,6 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/module.h>
-#include <linux/ratelimit.h>
 #include <linux/irqreturn.h>
 #include <mach/vreg.h>
 #include "msm_csiphy.h"
@@ -118,14 +117,6 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 			csiphybase + MIPI_CSIPHY_LNn_CFG2_ADDR + 0x40*j);
 		msm_camera_io_w(csiphy_params->settle_cnt,
 			csiphybase + MIPI_CSIPHY_LNn_CFG3_ADDR + 0x40*j);
-
-#if defined(CONFIG_MACH_LGE)
-		if(csiphy_dev->hw_version >= CSIPHY_VERSION_V30) {
-			msm_camera_io_w(0xFF,
-				csiphybase + MIPI_CSIPHY_LNn_CFG4_ADDR + 0x40*j);
-		}
-#endif
-
 		msm_camera_io_w(MIPI_CSIPHY_INTERRUPT_MASK_VAL, csiphybase +
 			MIPI_CSIPHY_INTERRUPT_MASK_ADDR + 0x4*j);
 		msm_camera_io_w(MIPI_CSIPHY_INTERRUPT_MASK_VAL, csiphybase +
@@ -608,7 +599,7 @@ static long msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 		rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
 		break;
 	default:
-		pr_err_ratelimited("%s: %d failed\n", __func__, __LINE__);
+		pr_err("%s: %d failed\n", __func__, __LINE__);
 		rc = -ENOIOCTLCMD;
 		break;
 	}

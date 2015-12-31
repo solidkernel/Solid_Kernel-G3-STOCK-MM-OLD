@@ -797,13 +797,6 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	u8 i = 0;
 	bool exists = false;
 	struct slim_device *sbdev;
-#ifdef CONFIG_SND_SOC_ES325_SLIM
-	/* LGE_BSP_AUDIO
-	* assign laddr to slim slave : Audience eS325 ALSA SoC Audio driver
-	* 2013-01-10, jeremy.pi@lge.com
-	*/
-	struct sbi_boardinfo *bi;
-#endif /* CONFIG_SND_SOC_ES325_SLIM */
 	struct list_head *pos, *next;
 
 	mutex_lock(&ctrl->m_ctrl);
@@ -846,22 +839,6 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	}
 	ctrl->addrt[i].laddr = *laddr;
 
-#ifdef CONFIG_SND_SOC_ES325_SLIM
-	/* LGE_BSP_AUDIO
-	* assign laddr to slim slave : Audience eS325 ALSA SoC Audio driver
-	* 2013-01-10, jeremy.pi@lge.com
-	*/
-	list_for_each(pos, &board_list) {
-		bi = list_entry(pos, struct sbi_boardinfo, list);
-		if (memcmp(e_addr, bi->board_info.slim_slave->e_addr, 6) == 0) {
-			if (bi->board_info.slim_slave) {
-				bi->board_info.slim_slave->laddr = *laddr;
-				dev_dbg(&ctrl->dev, "es325 MLB: assigned la=%d to sbdev=%p\n",*laddr, bi->board_info.slim_slave);
-				break;
-			}
-		}
-	}
-#endif /* CONFIG_SND_SOC_ES325_SLIM */
 	dev_dbg(&ctrl->dev, "setting slimbus l-addr:%x\n", *laddr);
 ret_assigned_laddr:
 	mutex_unlock(&ctrl->m_ctrl);
@@ -1123,33 +1100,11 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 	} else
 		ret = slim_processtxn(ctrl, SLIM_MSG_DEST_LOGICALADDR, mc, ec,
 				SLIM_MSG_MT_CORE, rbuf, wbuf, len, mlen,
-				msg->comp, sbdev->laddr, NULL);
+				NULL, sbdev->laddr, NULL);
 xfer_err:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(slim_xfer_msg);
-
-/*
- * User message:
- * slim_user_msg: Send user message that is interpreted by destination device
- * @sb: Client handle sending the message
- * @la: Destination device for this user message
- * @mt: Message Type (Soruce-referred, or Destination-referred)
- * @mc: Message Code
- * @msg: Message structure (start offset, number of bytes) to be sent
- * @buf: data buffer to be sent
- * @len: data buffer size in bytes
- */
-int slim_user_msg(struct slim_device *sb, u8 la, u8 mt, u8 mc,
-				struct slim_ele_access *msg, u8 *buf, u8 len)
-{
-	if (!sb || !sb->ctrl || !msg || mt == SLIM_MSG_MT_CORE)
-		return -EINVAL;
-	if (!sb->ctrl->xfer_user_msg)
-		return -EPROTONOSUPPORT;
-	return sb->ctrl->xfer_user_msg(sb->ctrl, la, mt, mc, msg, buf, len);
-}
-EXPORT_SYMBOL(slim_user_msg);
 
 /*
  * slim_alloc_mgrports: Allocate port on manager side.
@@ -1507,7 +1462,7 @@ EXPORT_SYMBOL_GPL(slim_disconnect_ports);
  * Client will call slim_port_get_xfer_status to get error and/or number of
  * bytes transferred if used asynchronously.
  */
-int slim_port_xfer(struct slim_device *sb, u32 ph, phys_addr_t iobuf, u32 len,
+int slim_port_xfer(struct slim_device *sb, u32 ph, u8 *iobuf, u32 len,
 				struct completion *comp)
 {
 	struct slim_controller *ctrl = sb->ctrl;
@@ -1537,7 +1492,7 @@ EXPORT_SYMBOL_GPL(slim_port_xfer);
  * processed from the multiple transfers.
  */
 enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb, u32 ph,
-			phys_addr_t *done_buf, u32 *done_len)
+			u8 **done_buf, u32 *done_len)
 {
 	struct slim_controller *ctrl = sb->ctrl;
 	u8 pn = SLIM_HDL_TO_PORT(ph);
@@ -1550,7 +1505,7 @@ enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb, u32 ph,
 	 */
 	if (la != SLIM_LA_MANAGER) {
 		if (done_buf)
-			*done_buf = 0;
+			*done_buf = NULL;
 		if (done_len)
 			*done_len = 0;
 		return SLIM_P_NOT_OWNED;

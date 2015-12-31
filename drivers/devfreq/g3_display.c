@@ -15,7 +15,7 @@ Copyright(c) 2013 by LG Electronics. All Rights Reserved.
   This section contains comments describing changes made to this file.
   Notice that changes are listed in reverse chronological order.
 
-when       who	  what, where, why
+when       who     	  what, where, why
 --------   --------   -------------------------------------------------------
 12/01/13   sdkim   Created file
 ======================================================-====================*/
@@ -33,14 +33,6 @@ when       who	  what, where, why
 
 #define _trace_macro_(tag, a, ...)      printk(KERN_INFO "[DFPSv1|"#tag"]"a, ##__VA_ARGS__)
 #define trace(...)             _trace_macro_(INFO, ##__VA_ARGS__)
-
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-#define FIXED_50FPS   50
-#define FIXED_FPS     77
-#define RELEASE_FPS   88
-
-unsigned long g_fixed_freq = RELEASE_FPS;
-#endif
 
 extern int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps);
 struct fb_info **fbi_list;
@@ -244,10 +236,10 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 	struct msm_fb_data_type* mfd = fbi_list[0]->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
-	pr_debug("send_event_to_mdss_display, val=%lu, freq=%lu\n", val, g3_display_opp_table[val].freq);
+	trace("send_event_to_mdss_display, val=%lu, freq=%lu\n", val, g3_display_opp_table[val].freq);
 
-	if (!ctl || !(ctl->power_on) || !(mfd->panel_power_on)) {
-		pr_err("Panel is off...FPS will not be changed\n");
+	if (!ctl || !(ctl->power_on)) {
+		trace("Panel is off...FPS will not be changed\n");
 		return -EPERM;
 	}
 	if(ctl->play_cnt==0) {
@@ -257,27 +249,16 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	mutex_lock(&mdp5_data->dfps_lock);
-
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    if (g_fixed_freq == FIXED_FPS)
-        wdfps = FIXED_50FPS;
-    else
-        wdfps = g3_display_opp_table[val].freq;
-
-    trace ("[FPS] wdfps = %d",wdfps);
-#else
 	wdfps = g3_display_opp_table[val].freq;
-#endif
-
 	if (wdfps == pdata->panel_info.mipi.frame_rate) {
 		pr_debug("%s: FPS is already %d\n", __func__, wdfps);
 		mutex_unlock(&mdp5_data->dfps_lock);
 		return 0;
 	}
 
-	if (wdfps < 50) {
-		pr_err("Unsupported FPS. Configuring to min_fps = 50\n");
-		wdfps = 50;
+	if (wdfps < 38) {
+		pr_err("Unsupported FPS. Configuring to min_fps = 30\n");
+		wdfps = 38;
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else if (wdfps > 60) {
 		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
@@ -287,7 +268,7 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	}
 	if (!ret) {
-		pr_debug("%s: configured to '%d' FPS\n", __func__, wdfps);
+		trace("%s: configured to '%d' FPS\n", __func__, wdfps);
 	} else {
 		pr_err("Failed to configure '%d' FPS. ret = %d\n", wdfps, ret);
 		mutex_unlock(&mdp5_data->dfps_lock);
@@ -319,9 +300,6 @@ int g3_opp_get_idx(unsigned long new_freq,
 int g3_display_profile_target(struct device *dev,
 		unsigned long *_freq, u32 options){
 	int ret = 0;
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    unsigned long required_freq = *_freq;
-#endif
 	struct g3_display_data *data = dev_get_drvdata(dev);
 	struct opp *opp = devfreq_recommended_opp(dev, _freq, options);
 	unsigned long old_freq = opp_get_freq(data->curr_opp);
@@ -329,13 +307,6 @@ int g3_display_profile_target(struct device *dev,
 	unsigned int new_freq_idx = -1, old_freq_idx = -1;
 
 	if(old_freq == new_freq) return ret;
-
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    if (required_freq == FIXED_FPS)
-        g_fixed_freq = FIXED_FPS;
-    else if (required_freq == RELEASE_FPS)
-        g_fixed_freq = RELEASE_FPS;
-#endif
 
 	old_freq_idx = g3_opp_get_idx(old_freq, g3_display_opp_table);
 	new_freq_idx = g3_opp_get_idx(new_freq, g3_display_opp_table);

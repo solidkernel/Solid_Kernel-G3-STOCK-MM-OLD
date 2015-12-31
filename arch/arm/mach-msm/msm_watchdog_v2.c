@@ -256,7 +256,7 @@ static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
 	unsigned long long bark_time_ns = wdog_dd->bark_time * 1000000ULL;
 
 #ifdef CONFIG_MACH_LGE
-	printk(KERN_INFO "%s\n", __func__);
+	pr_debug("%s\n", __func__);
 #endif
 
 	for (i = 0; i < 2; i++) {
@@ -507,9 +507,8 @@ static int __devinit msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	wdog_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pdata->size = resource_size(wdog_resource);
 	pdata->phys_base = wdog_resource->start;
-	if (unlikely(!(devm_request_mem_region(&pdev->dev, pdata->phys_base,
-					       pdata->size, "msm-watchdog")))) {
-
+	if (unlikely(!(devm_request_region(&pdev->dev, pdata->phys_base,
+					pdata->size, "msm-watchdog")))) {
 		dev_err(&pdev->dev, "%s cannot reserve watchdog region\n",
 								__func__);
 		return -ENXIO;

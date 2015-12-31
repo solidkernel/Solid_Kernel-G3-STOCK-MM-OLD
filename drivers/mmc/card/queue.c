@@ -15,15 +15,10 @@
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/scatterlist.h>
-#include <linux/bitops.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include "queue.h"
-
-#if defined(CONFIG_LGE_MMC_DYNAMIC_LOG)
-#include <linux/mmc/debug_log.h>
-#endif
 
 #define MMC_QUEUE_BOUNCESZ	65536
 
@@ -70,9 +65,6 @@ static int mmc_queue_thread(void *d)
 	do {
 		struct mmc_queue_req *tmp;
 		struct request *req = NULL;
-#ifdef CONFIG_MACH_LGE
-		unsigned int cmd_flags;
-#endif
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -82,20 +74,13 @@ static int mmc_queue_thread(void *d)
 
 		if (req || mq->mqrq_prev->req) {
 			set_current_state(TASK_RUNNING);
-#ifdef CONFIG_MACH_LGE
-			cmd_flags = mq->mqrq_cur->req ? mq->mqrq_cur->req->cmd_flags : 0;
-#endif
 			mq->issue_fn(mq, req);
-			if (test_bit(MMC_QUEUE_NEW_REQUEST, &mq->flags)) {
+			if (mq->flags & MMC_QUEUE_NEW_REQUEST) {
 				continue; /* fetch again */
-			} else if (test_bit(MMC_QUEUE_URGENT_REQUEST,
-					&mq->flags) && (mq->mqrq_cur->req &&
-#ifdef CONFIG_MACH_LGE
-					!(cmd_flags &
-#else
-					!(mq->mqrq_cur->req->cmd_flags &
-#endif
-						MMC_REQ_NOREINSERT_MASK))) {
+			} else if ((mq->flags & MMC_QUEUE_URGENT_REQUEST) &&
+				   (mq->mqrq_cur->req &&
+				!(mq->mqrq_cur->req->cmd_flags &
+				       MMC_REQ_NOREINSERT_MASK))) {
 				/*
 				 * clean current request when urgent request
 				 * processing in progress and current request is
@@ -298,6 +283,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
+	queue_flag_clear_unlocked(QUEUE_FLAG_ADD_RANDOM, mq->queue);
 	if (mmc_can_erase(card))
 		mmc_queue_setup_discard(mq->queue, card);
 
@@ -489,7 +475,9 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	unsigned long flags;
 	int rc = 0;
 
-	if (!(test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags))) {
+	if (!(mq->flags & MMC_QUEUE_SUSPENDED)) {
+		mq->flags |= MMC_QUEUE_SUSPENDED;
+
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
@@ -500,7 +488,7 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 			 * Failed to take the lock so better to abort the
 			 * suspend because mmcqd thread is processing requests.
 			 */
-			clear_bit(MMC_QUEUE_SUSPENDED, &mq->flags);
+			mq->flags &= ~MMC_QUEUE_SUSPENDED;
 			spin_lock_irqsave(q->queue_lock, flags);
 			blk_start_queue(q);
 			spin_unlock_irqrestore(q->queue_lock, flags);
@@ -522,7 +510,8 @@ void mmc_queue_resume(struct mmc_queue *mq)
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
 
-	if (test_and_clear_bit(MMC_QUEUE_SUSPENDED, &mq->flags)) {
+	if (mq->flags & MMC_QUEUE_SUSPENDED) {
+		mq->flags &= ~MMC_QUEUE_SUSPENDED;
 
 		up(&mq->thread_sem);
 

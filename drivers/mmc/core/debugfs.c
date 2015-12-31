@@ -646,7 +646,7 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		/* flush_cache ext_csd[32] not readable */
 		/*Reserved [31:0] */
 	}
-	if (ext_csd_rev >= 7) {
+	if (ext_csd_rev >= 7){
 		seq_printf(s, "[30] Mode Config, MODE_CONFIG: 0x%02x\n", ext_csd[30]);
 		/* mode_operation_codes ext_csd[29] not readable */
 		seq_printf(s, "[26] FFU Status, FFU_STATUS: 0x%02x\n", ext_csd[26]);

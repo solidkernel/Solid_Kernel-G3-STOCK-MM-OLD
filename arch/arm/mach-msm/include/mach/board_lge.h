@@ -1,7 +1,7 @@
 #ifndef __ASM_ARCH_MSM_BOARD_LGE_H
 #define __ASM_ARCH_MSM_BOARD_LGE_H
 
-#if defined (CONFIG_MACH_MSM8974_G3_GLOBAL_COM) || defined (CONFIG_MACH_MSM8974_G3_KDDI)
+#if defined (CONFIG_MACH_MSM8974_G3_GLOBAL_COM)
 typedef enum {
 	HW_REV_EVB1 = 0,
 	HW_REV_EVB2,
@@ -18,11 +18,12 @@ typedef enum {
 	HW_REV_1_2,
 	HW_REV_MAX
 } hw_rev_type;
-#elif defined (CONFIG_MACH_MSM8974_DZNY_DCM)
+#elif defined (CONFIG_MACH_MSM8974_G3_KDDI)
 typedef enum {
 	HW_REV_EVB1 = 0,
 	HW_REV_EVB2,
 	HW_REV_A,
+	HW_REV_A1,
 	HW_REV_B,
 	HW_REV_C,
 	HW_REV_D,
@@ -57,12 +58,6 @@ typedef enum {
 extern char *rev_str[];
 
 hw_rev_type lge_get_board_revno(void);
-
-#ifdef CONFIG_LGE_GPIO_SIM_DETECT
-#if defined(CONFIG_MACH_MSM8974_T1_ATT) || defined(CONFIG_MACH_MSM8974_T1LTE_GLOBAL_COM)
-#define SIM_DETECT_N 100
-#endif
-#endif
 
 #ifdef CONFIG_LGE_PM
 typedef enum {
@@ -112,21 +107,6 @@ struct pseudo_batt_info_type {
 struct pseudo_batt_info_type;
 void pseudo_batt_set(struct pseudo_batt_info_type *);
 #endif
-#ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
-typedef enum {
-	LCD_RENESAS_LGD = 0,
-	LCD_RENESAS_JDI,
-	LCD_MAKER_MAX,
-} lcd_maker_id;
-
-typedef struct {
-	lcd_maker_id maker_id;
-	int min_mvol;
-	int max_mvol;
-} lcd_vol_maker_tbl_type;
-
-lcd_maker_id lge_get_panel_maker(void);
-#endif
 
 enum lge_boot_mode_type {
 	LGE_BOOT_MODE_NORMAL = 0,
@@ -139,14 +119,9 @@ enum lge_boot_mode_type {
 	LGE_BOOT_MODE_PIFBOOT2,
 	LGE_BOOT_MODE_PIFBOOT3,
 };
-
 enum lge_boot_mode_type lge_get_boot_mode(void);
 int lge_get_factory_boot(void);
 int lge_get_factory_cable(void);
-
-#ifdef CONFIG_MACH_MSM8974_G2_VZW
-int lge_get_battery_low(void);
-#endif
 
 #ifdef CONFIG_USB_G_LGE_ANDROID
 void __init lge_add_android_usb_devices(void);
@@ -168,16 +143,7 @@ struct kcal_platform_data {
 	int (*get_values) (int *r, int *g, int *b);
 	int (*refresh_display) (void);
 };
-#endif
-#if defined(CONFIG_PRE_SELF_DIAGNOSIS)
-int lge_pre_self_diagnosis(char *drv_bus_code, int func_code, char *dev_code, char *drv_code, int errno);
-int lge_pre_self_diagnosis_pass(char *dev_code);
-#endif
-
-struct pre_selfd_platform_data {
-	int (*set_values) (int r, int g, int b);
-	int (*get_values) (int *r, int *g, int *b);
-};
+#endif /* CONFIG_LCD_KCAL */
 
 enum lge_laf_mode_type {
 	LGE_LAF_MODE_NORMAL = 0,
@@ -231,16 +197,8 @@ void __init lge_add_persist_ram_devices(void);
 #endif
 
 #ifdef CONFIG_LGE_LCD_TUNING
-struct lcd_platform_data {
-	int (*set_values) (int *tun_lcd_t);
-	int (*get_values) (int *tun_lcd_t);
-};
-
 void __init lge_add_lcd_misc_devices(void);
 #endif
-
-int gpio_debug_init(void);
-void gpio_debug_print(void);
 
 #if defined(CONFIG_LCD_KCAL)
 /* LGE_CHANGE_S
@@ -253,7 +211,7 @@ void __init lge_add_lcd_kcal_devices(void);
 void __init lge_add_qfprom_devices(void);
 #endif
 
-#ifdef CONFIG_LGE_DIAG_USB_ACCESS_LOCK
+#ifdef CONFIG_LGE_DIAG_ENABLE_SYSFS
 void __init lge_add_diag_devices(void);
 #endif
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)

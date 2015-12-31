@@ -2193,10 +2193,8 @@ static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, true);
 
-	mutex_lock_nested(&dapm->card->dapm_mutex, SND_SOC_DAPM_CLASS_PCM);
 	if (!w) {
 		dev_err(dapm->dev, "dapm: unknown pin %s\n", pin);
-		mutex_unlock(&dapm->card->dapm_mutex);
 		return -EINVAL;
 	}
 
@@ -2205,7 +2203,6 @@ static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 		w->force = 0;
 	dapm_mark_dirty(w, "pin configuration");
 
-	mutex_unlock(&dapm->card->dapm_mutex);
 	return 0;
 }
 
@@ -3311,7 +3308,7 @@ void snd_soc_dapm_rtd_stream_event(struct snd_soc_pcm_runtime *rtd,
 
 	dev_dbg(rtd->dev, "rtd stream %d event %d\n", stream, event);
 
-	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_PCM);
+	mutex_lock_nested(&card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		widget_stream_event(pdapm, rtd->cpu_dai->playback_aif, event);
 		widget_stream_event(cdapm, rtd->codec_dai->playback_aif, event);
@@ -3396,10 +3393,8 @@ int snd_soc_dapm_force_enable_pin(struct snd_soc_dapm_context *dapm,
 {
 	struct snd_soc_dapm_widget *w = dapm_find_widget(dapm, pin, true);
 
-	mutex_lock_nested(&dapm->card->dapm_mutex, SND_SOC_DAPM_CLASS_PCM);
 	if (!w) {
 		dev_err(dapm->dev, "dapm: unknown pin %s\n", pin);
-		mutex_unlock(&dapm->card->dapm_mutex);
 		return -EINVAL;
 	}
 
@@ -3407,7 +3402,6 @@ int snd_soc_dapm_force_enable_pin(struct snd_soc_dapm_context *dapm,
 	w->connected = 1;
 	w->force = 1;
 	dapm_mark_dirty(w, "force enable");
-	mutex_unlock(&dapm->card->dapm_mutex);
 
 	return 0;
 }

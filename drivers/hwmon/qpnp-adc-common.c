@@ -46,7 +46,7 @@
    will result in the below table size to increase by 10 times */
 static const struct qpnp_vadc_map_pt adcmap_btm_threshold[] = {
 #ifdef CONFIG_LGE_PM
-#if defined(CONFIG_MACH_MSM8974_G3_KDDI)
+#ifdef CONFIG_MACH_MSM8974_G3_KDDI
 /* The battery of G3_KDDI is BL-T7 */
 	{-300,	1675},
 	{-290,	1667},
@@ -158,117 +158,6 @@ static const struct qpnp_vadc_map_pt adcmap_btm_threshold[] = {
 	{770,	339},
 	{780,	336},
 	{790,	333}
-#elif defined(CONFIG_LGE_PM_BATTERY_BATT_ADC_G2_BASE)
-	{-300, 1669},
-	{-290, 1662},
-	{-280, 1653},
-	{-270, 1644},
-	{-260, 1635},
-	{-250, 1626},
-	{-240, 1616},
-	{-230, 1605},
-	{-220, 1594},
-	{-210, 1583},
-	{-200, 1572},
-	{-190, 1560},
-	{-180, 1547},
-	{-170, 1534},
-	{-160, 1521},
-	{-150, 1507},
-	{-140, 1493},
-	{-130, 1478},
-	{-120, 1463},
-	{-110, 1448},
-	{-100, 1432},
-	{-90, 1415},
-	{-80, 1399},
-	{-70, 1382},
-	{-60, 1365},
-	{-50, 1347},
-	{-40, 1329},
-	{-30, 1311},
-	{-20, 1293},
-	{-10, 1274},
-	{0, 1255},
-	{10, 1236},
-	{20, 1217},
-	{30, 1198},
-	{40, 1179},
-	{50, 1159},
-	{60, 1140},
-	{70, 1120},
-	{80, 1101},
-	{90, 1081},
-	{100, 1062},
-	{110, 1042},
-	{120, 1023},
-	{130, 1004},
-	{140, 985},
-	{150, 966},
-	{160, 947},
-	{170, 929},
-	{180, 910},
-	{190, 892},
-	{200, 874},
-	{210, 857},
-	{220, 840},
-	{230, 823},
-	{240, 806},
-	{250, 790},
-	{260, 774},
-	{270, 758},
-	{280, 743},
-	{290, 728},
-	{300, 713},
-	{310, 699},
-	{320, 685},
-	{330, 671},
-	{340, 658},
-	{350, 645},
-	{360, 632},
-	{370, 620},
-	{380, 608},
-	{390, 597},
-	{400, 585},
-	{410, 574},
-	{420, 564},
-	{430, 554},
-	{440, 544},
-	{450, 534},
-	{460, 525},
-	{470, 516},
-	{480, 507},
-	{490, 498},
-	{500, 490},
-	{510, 482},
-	{520, 475},
-	{530, 467},
-	{540, 460},
-	{550, 453},
-	{560, 446},
-	{570, 440},
-	{580, 434},
-	{590, 428},
-	{600, 422},
-	{610, 416},
-	{620, 411},
-	{630, 405},
-	{640, 400},
-	{650, 395},
-	{660, 391},
-	{670, 386},
-	{680, 382},
-	{690, 377},
-	{700, 373},
-	{710, 369},
-	{720, 366},
-	{730, 362},
-	{740, 358},
-	{750, 355},
-	{760, 352},
-	{770, 348},
-	{780, 345},
-	{790, 342},
 #else
 	{-300,	1653},
 	{-290,	1644},
@@ -632,44 +521,6 @@ static const struct qpnp_vadc_map_pt adcmap_qrd_skug_btm_threshold[] = {
 };
 
 /* Voltage to temperature */
-#ifdef CONFIG_MACH_MSM8974_G3_CN
-static const struct qpnp_vadc_map_pt adcmap_100k_104ef_104fb[] = {
-	{1755,	-40},
-	{1737,	-35},
-	{1713,	-30},
-	{1684,	-25},
-	{1645,	-20},
-	{1597,	-15},
-	{1537,	-10},
-	{1467,	-5},
-	{1386,	0},
-	{1296,	5},
-	{1197,	10},
-	{1093,	15},
-	{986,	20},
-	{879,	25},
-	{755,	30},
-	{660,	35},
-	{522,	40},
-	{422,	45},
-	{383,	50},
-	{262,	55},
-	{237,	60},
-	{196,	65},
-	{172,	70},
-	{146,	75},
-	{125,	80},
-	{107,	85},
-	{92,	90},
-	{79,	95},
-	{68,	100},
-	{59,	105},
-	{51,	110},
-	{44,	115},
-	{36,	120},
-	{29,	125}
-};
-#else
 static const struct qpnp_vadc_map_pt adcmap_100k_104ef_104fb[] = {
 	{1758,	-40},
 	{1742,	-35},
@@ -706,7 +557,7 @@ static const struct qpnp_vadc_map_pt adcmap_100k_104ef_104fb[] = {
 	{51,	120},
 	{44,	125}
 };
-#endif
+
 /* Voltage to temperature */
 static const struct qpnp_vadc_map_pt adcmap_150k_104ef_104fb[] = {
 	{1738,	-40},
@@ -1191,22 +1042,17 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 		return -EINVAL;
 
 	scale_voltage = (adc_code -
-		chan_properties->adc_graph[chan_properties->calib_type].adc_gnd)
-		* chan_properties->adc_graph[chan_properties->calib_type].dx;
+		chan_properties->adc_graph[CALIB_ABSOLUTE].adc_gnd)
+		* chan_properties->adc_graph[CALIB_ABSOLUTE].dx;
 	if (scale_voltage < 0) {
 		negative_offset = 1;
 		scale_voltage = -scale_voltage;
 	}
 	do_div(scale_voltage,
-		chan_properties->adc_graph[chan_properties->calib_type].dy);
+		chan_properties->adc_graph[CALIB_ABSOLUTE].dy);
 	if (negative_offset)
 		scale_voltage = -scale_voltage;
-
-	if (chan_properties->calib_type == CALIB_ABSOLUTE)
-		scale_voltage +=
-		chan_properties->adc_graph[chan_properties->calib_type].dx;
-	else
-		scale_voltage *= 1000;
+	scale_voltage += chan_properties->adc_graph[CALIB_ABSOLUTE].dx;
 
 	if (scale_voltage < 0) {
 		if (adc_properties->bipolar) {
@@ -1505,7 +1351,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 
 	for_each_child_of_node(node, child) {
 		int channel_num, scaling, post_scaling, hw_settle_time;
-		int fast_avg_setup, calib_type = 0, rc;
+		int fast_avg_setup, calib_type, rc;
 		const char *calibration_param, *channel_name;
 
 		channel_name = of_get_property(child,
@@ -1554,40 +1400,23 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 			pr_err("Invalid channel decimation property\n");
 			return -EINVAL;
 		}
-		if (!of_device_is_compatible(node, "qcom,qpnp-iadc")) {
-			rc = of_property_read_u32(child,
-				"qcom,hw-settle-time", &hw_settle_time);
-			if (rc) {
-				pr_err("Invalid channel hw settle time property\n");
-				return -EINVAL;
-			}
-			rc = of_property_read_u32(child,
+		rc = of_property_read_u32(child,
 				"qcom,pre-div-channel-scaling", &scaling);
-			if (rc) {
-				pr_err("Invalid channel scaling property\n");
-				return -EINVAL;
-			}
-			rc = of_property_read_u32(child,
+		if (rc) {
+			pr_err("Invalid channel scaling property\n");
+			return -EINVAL;
+		}
+		rc = of_property_read_u32(child,
 				"qcom,scale-function", &post_scaling);
-			if (rc) {
-				pr_err("Invalid channel post scaling property\n");
-				return -EINVAL;
-			}
-			rc = of_property_read_string(child,
-				"qcom,calibration-type", &calibration_param);
-			if (rc) {
-				pr_err("Invalid calibration type\n");
-				return -EINVAL;
-			}
-			if (!strcmp(calibration_param, "absolute"))
-				calib_type = CALIB_ABSOLUTE;
-			else if (!strcmp(calibration_param, "ratiometric"))
-				calib_type = CALIB_RATIOMETRIC;
-			else {
-				pr_err("%s: Invalid calibration property\n",
-						__func__);
-				return -EINVAL;
-			}
+		if (rc) {
+			pr_err("Invalid channel post scaling property\n");
+			return -EINVAL;
+		}
+		rc = of_property_read_u32(child,
+				"qcom,hw-settle-time", &hw_settle_time);
+		if (rc) {
+			pr_err("Invalid channel hw settle time property\n");
+			return -EINVAL;
 		}
 		rc = of_property_read_u32(child,
 				"qcom,fast-avg-setup", &fast_avg_setup);
@@ -1595,17 +1424,28 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 			pr_err("Invalid channel fast average setup\n");
 			return -EINVAL;
 		}
+		rc = of_property_read_string(child, "qcom,calibration-type",
+							&calibration_param);
+		if (rc) {
+			pr_err("Invalid calibration type\n");
+			return -EINVAL;
+		}
+		if (!strncmp(calibration_param, "absolute", 8))
+			calib_type = CALIB_ABSOLUTE;
+		else if (!strncmp(calibration_param, "ratiometric", 11))
+			calib_type = CALIB_RATIOMETRIC;
+		else {
+			pr_err("%s: Invalid calibration property\n", __func__);
+			return -EINVAL;
+		}
 		/* Individual channel properties */
 		adc_channel_list[i].name = (char *)channel_name;
 		adc_channel_list[i].channel_num = channel_num;
+		adc_channel_list[i].chan_path_prescaling = scaling;
 		adc_channel_list[i].adc_decimation = decimation;
+		adc_channel_list[i].adc_scale_fn = post_scaling;
+		adc_channel_list[i].hw_settle_time = hw_settle_time;
 		adc_channel_list[i].fast_avg_setup = fast_avg_setup;
-		if (!of_device_is_compatible(node, "qcom,qpnp-iadc")) {
-			adc_channel_list[i].chan_path_prescaling = scaling;
-			adc_channel_list[i].adc_scale_fn = post_scaling;
-			adc_channel_list[i].hw_settle_time = hw_settle_time;
-			adc_channel_list[i].calib_type = calib_type;
-		}
 		i++;
 	}
 

@@ -60,9 +60,6 @@
 #include <mach/mpm.h>
 #include <mach/msm_bus.h>
 
-#include <mach/board_lge.h> //to use lge_get_board_revno()
-
-
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
 
@@ -1721,7 +1718,7 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 		* to prevent this, we inserted LG W/A code.
 		* 2013-04-22, G2-FS@lge.com
 		*/
-		if (!host->curr.data)
+		if(!host->curr.data)
 			break;
 	#endif
 
@@ -4349,20 +4346,13 @@ retry:
 		 */
 		{
 			int bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2;
-			#if defined (CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) \
-				|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
-			bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3; /* sdcc 3 */
-			#elif defined(CONFIG_MACH_MSM8974_B1_KR) || defined(CONFIG_MACH_MSM8974_B1W)
-				if (HW_REV_B <= lge_get_board_revno() && HW_REV_D >= lge_get_board_revno()) {
-					bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2; /* sdcc 2 */
-				} else {
-					bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3;  /* sdcc 3 */
-				}
-			#endif
-
-			if (host->pdev->id == bcmdhd_id) {
-				rc = 0;
-				/* panic("Failed to tune.\n"); please contact hayun.kim@lge.com */
+		#if defined (CONFIG_MACH_MSM8974_G3_KDDI_EVB)
+			bcmdhd_id = 3; /* sdcc 3 */
+		#endif
+			
+            if (host->pdev->id == bcmdhd_id) {
+			    rc = 0;
+			    //panic("Failed to tune.\n"); /* please contact hayun.kim@lge.com */
 			}
 		}
 	#endif
@@ -5915,8 +5905,8 @@ err:
 
 /* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 #if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
-extern int wcf_status_register(void (*cb)(int card_present, void *dev), void *dev);
-extern unsigned int wcf_status(struct device *);
+extern int sdc2_status_register(void (*cb)(int card_present, void *dev), void *dev);
+extern unsigned int sdc2_status(struct device *);
 #endif
 /* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 static int
@@ -6312,21 +6302,14 @@ msmsdcc_probe(struct platform_device *pdev)
 	{
 		int bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2;
 	
-		#if defined (CONFIG_MACH_MSM8974_G2_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) \
-		|| defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_TIGERS_KR)
-		bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3; /* sdcc 3 */
-		#elif defined(CONFIG_MACH_MSM8974_B1_KR) || defined(CONFIG_MACH_MSM8974_B1W)
-			if (HW_REV_B <= lge_get_board_revno() && HW_REV_D >= lge_get_board_revno()) {
-				bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC2; /* sdcc 2 */
-			} else {
-				bcmdhd_id = MMC_SDCC_CONTROLLER_INDEX_SDCC3;  /* sdcc 3 */
-			}
-		#endif
-
-		printk("jaewoo :%s-%d> plat->nonremovable = %d\n", __FUNCTION__, host->pdev->id, plat->nonremovable );
+        #if defined (CONFIG_MACH_MSM8974_G3_KDDI_EVB)
+    	bcmdhd_id = 3; /* sdcc 3 */
+	    #endif
+		
+        printk("jaewoo :%s-%d> plat->nonremovable = %d\n", __FUNCTION__, host->pdev->id, plat->nonremovable );
 		if( host->pdev->id == bcmdhd_id ) {
-			plat->register_status_notify = wcf_status_register;
-			plat->status = wcf_status;
+			plat->register_status_notify = sdc2_status_register;
+			plat->status = sdc2_status;
 		}
 	}
 	#endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-13, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,15 +45,8 @@
 #define TO_SECS(arr)		(arr[0] | (arr[1] << 8) | (arr[2] << 16) | \
 							(arr[3] << 24))
 
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-static unsigned long rtc_fake_secs;
-#endif
 /* Module parameter to control power-on-alarm */
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-extern bool poweron_alarm;
-#else
 static bool poweron_alarm;
-#endif
 module_param(poweron_alarm, bool, 0644);
 MODULE_PARM_DESC(poweron_alarm, "Enable/Disable power-on alarm");
 
@@ -72,7 +65,7 @@ struct qpnp_rtc {
 	spinlock_t alarm_ctrl_lock;
 };
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 extern struct rtc_wkalrm g_poalarm;
 static struct workqueue_struct*	poa_workq;
 static struct delayed_work	poa_read_alarm_info;
@@ -114,14 +107,9 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	int rc;
 	unsigned long secs, irq_flags;
 	u8 value[4], reg = 0, alarm_enabled = 0, ctrl_reg;
-	u8 rtc_disabled = 0, rtc_ctrl_reg;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 
 	rtc_tm_to_time(tm, &secs);
-
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-	secs -= rtc_fake_secs;
-#endif
 
 	value[0] = secs & 0xFF;
 	value[1] = (secs >> 8) & 0xFF;
@@ -169,22 +157,6 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	 * write operation
 	 */
 
-	/* Disable RTC H/w before writing on RTC register*/
-	rtc_ctrl_reg = rtc_dd->rtc_ctrl_reg;
-	if (rtc_ctrl_reg & BIT_RTC_ENABLE) {
-		rtc_disabled = 1;
-		rtc_ctrl_reg &= ~BIT_RTC_ENABLE;
-		rc = qpnp_write_wrapper(rtc_dd, &rtc_ctrl_reg,
-				rtc_dd->rtc_base + REG_OFFSET_RTC_CTRL, 1);
-		if (rc) {
-			dev_err(dev,
-				"Disabling of RTC control reg failed"
-					" with error:%d\n", rc);
-			goto rtc_rw_fail;
-		}
-		rtc_dd->rtc_ctrl_reg = rtc_ctrl_reg;
-	}
-
 	/* Clear WDATA[0] */
 	reg = 0x0;
 	rc = qpnp_write_wrapper(rtc_dd, &reg,
@@ -208,20 +180,6 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	if (rc) {
 		dev_err(dev, "Write to RTC reg failed\n");
 		goto rtc_rw_fail;
-	}
-
-	/* Enable RTC H/w after writing on RTC register*/
-	if (rtc_disabled) {
-		rtc_ctrl_reg |= BIT_RTC_ENABLE;
-		rc = qpnp_write_wrapper(rtc_dd, &rtc_ctrl_reg,
-				rtc_dd->rtc_base + REG_OFFSET_RTC_CTRL, 1);
-		if (rc) {
-			dev_err(dev,
-				"Enabling of RTC control reg failed"
-					" with error:%d\n", rc);
-			goto rtc_rw_fail;
-		}
-		rtc_dd->rtc_ctrl_reg = rtc_ctrl_reg;
 	}
 
 	if (alarm_enabled) {
@@ -280,11 +238,7 @@ qpnp_rtc_read_time(struct device *dev, struct rtc_time *tm)
 		}
 	}
 
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-	secs = rtc_fake_secs + TO_SECS(value);
-#else
 	secs = TO_SECS(value);
-#endif
 
 	rtc_time_to_tm(secs, tm);
 
@@ -328,19 +282,18 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	if (g_poalarm.enabled) {
 		unsigned long secs_pwron;
 		/* If there are power on alarm before alarm time, ignore alarm */
 		rtc_tm_to_time(&g_poalarm.time, &secs_pwron);
-		pr_info("[%s %d] secs_pwron=%lu, secs=%lu, rtc=%lu\n",
-				__func__, __LINE__, secs_pwron, secs, secs_rtc);
+		pr_info("[%s %d] secs_pwron=%lu, secs=%lu, rtc=%lu\n", __func__, __LINE__, secs_pwron, secs, secs_rtc);
 
-		if (secs_rtc < secs_pwron && secs_pwron < secs) {
-			pr_info("[%s %d] Override with Power Off Alarm\n", __func__, __LINE__);
-			memcpy(alarm, &g_poalarm, sizeof(struct rtc_wkalrm));
-			secs = secs_pwron;
-		}
+                if (secs_rtc < secs_pwron && secs_pwron < secs) {
+                        pr_info("[%s %d] Override with Power Off Alarm\n", __func__, __LINE__);
+                        memcpy(alarm, &g_poalarm, sizeof(struct rtc_wkalrm));
+                        secs = secs_pwron;
+                }
 
 		if (secs_pwron < secs_rtc) {
 			pr_info("[%s %d] Power Off alarm was expired.\n", __func__, __LINE__);
@@ -348,10 +301,6 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 			return 0;
 		}
 	}
-#endif
-
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-	secs -= rtc_fake_secs;
 #endif
 
 	value[0] = secs & 0xFF;
@@ -398,7 +347,7 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	u8 value[4];
 	unsigned long secs;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	u8 ctrl_reg;
 #endif
 
@@ -409,7 +358,7 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		dev_err(dev, "Read from ALARM reg failed\n");
 		return rc;
 	}
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	ctrl_reg = rtc_dd->alarm_ctrl_reg1;
 	if (ctrl_reg & BIT_RTC_ALARM_ENABLE) {
 		alarm->enabled = true;
@@ -418,11 +367,7 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	}
 #endif
 
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-	secs = rtc_fake_secs + TO_SECS(value);
-#else
 	secs = TO_SECS(value);
-#endif
 	rtc_time_to_tm(secs, &alarm->time);
 
 	rc = rtc_valid_tm(&alarm->time);
@@ -448,14 +393,8 @@ qpnp_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 	u8 ctrl_reg;
 	u8 value[4] = {0};
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-	pr_info("[%s]: enabled : %d,poweron_alarm : %d\n",__func__, enabled,poweron_alarm);
-	if (poweron_alarm == true) {
-		enabled = true;
-	}
-	else if (poweron_alarm == false) {
-		enabled = false;
-	}
+#ifdef CONFIG_RTC_PWROFF_ALARM
+	pr_info("[%s]: enabled = %d\n",__func__, enabled);
 #endif
 
 	spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
@@ -486,7 +425,7 @@ rtc_rw_fail:
 	return rc;
 }
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 static int
 qpnp_rtc_alarm_proc(struct device *dev, struct seq_file *seq)
 {
@@ -521,20 +460,16 @@ qpnp_rtc_set_po_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	u8 pon_trigger_rtc;
 
 	pon_trigger_rtc = 0xFE;
-	pr_info("[%s] : alarm->enabled = %d, poweron_alarm = %d\n",
-			__func__,alarm->enabled,poweron_alarm);
+	pr_info("[%s] : alarm->enabled = %d\n",__func__,alarm->enabled);
 
 	if (!alarm->enabled) {
-
 		pr_info("[%s %d] try to clear\n", __func__, __LINE__);
 
 		ctrl_reg = (rtc_dd->alarm_ctrl_reg1 & ~BIT_RTC_ALARM_ENABLE);
 
 		spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
 
-		rc = qpnp_write_wrapper(rtc_dd, &ctrl_reg,
-				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-
+		rc = qpnp_write_wrapper(rtc_dd, &ctrl_reg, rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
 		if (rc < 0) {
 			pr_err("[%s %d] QPNP RTC write failed!\n", __func__, __LINE__);
 			goto rtc_rw_fail;
@@ -563,7 +498,7 @@ qpnp_rtc_set_po_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 		if (secs < secs_rtc) {
 			g_poalarm.enabled = 0;
-			write_rtc_pwron_in_misc(&g_poalarm);
+			/*write_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_ENABLE);*/
 			dev_err(dev, "Trying to set alarm in the past\n");
 			return -EINVAL;
 		}
@@ -602,14 +537,9 @@ qpnp_rtc_set_po_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 			dev_err(dev, "Write to ALARM cntrol reg failed\n");
 			goto rtc_rw_fail;
 		}
-		rc = qpnp_read_wrapper(rtc_dd, &ctrl_reg,
-				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-		if (rc) {
-			dev_err(dev, "Write to ALARM cntrol reg failed\n");
-			goto rtc_rw_fail;
-		}
+
 		rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
-		pr_info("[%s] ctrl_reg = %d\n",__func__, ctrl_reg);
+
 		pr_info("[%s] --> Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n", __func__,
 				alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
@@ -629,7 +559,13 @@ static int qpnp_rtc_reset_po_alarm(struct device *dev)
 
 static void read_poa_info(struct work_struct *work)
 {
-	pr_info("[%s]\n",__func__);
+	pr_info("[%s %d]\n", __func__, __LINE__);
+
+/*	if (read_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_ENABLE)) {
+		read_rtc_pwron_in_misc(&g_poalarm, LG_RTC_POWER_ON_TIME);
+		g_poalarm.pending = 0;
+	}
+*/
 }
 #endif
 
@@ -638,7 +574,7 @@ static struct rtc_class_ops qpnp_rtc_ops = {
 	.set_alarm = qpnp_rtc_set_alarm,
 	.read_alarm = qpnp_rtc_read_alarm,
 	.alarm_irq_enable = qpnp_rtc_alarm_irq_enable,
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	.proc 		= qpnp_rtc_alarm_proc,
 	.set_po_alarm	= qpnp_rtc_set_po_alarm,
 #endif
@@ -690,13 +626,6 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 	struct qpnp_rtc *rtc_dd;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-	u8 ctrl_reg;
-#endif
-
-#ifdef CONFIG_LGE_RTC_FAKE_SECS
-	rtc_fake_secs = mktime(2015, 1, 1, 0, 0, 0);
-#endif
 
 	rtc_dd = devm_kzalloc(&spmi->dev, sizeof(*rtc_dd), GFP_KERNEL);
 	if (rtc_dd == NULL) {
@@ -791,15 +720,8 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 		goto fail_rtc_enable;
 	}
 
-	rc = qpnp_read_wrapper(rtc_dd, &rtc_dd->alarm_ctrl_reg1,
-				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-	if (rc) {
-		dev_err(&spmi->dev,
-			"Read from  Alarm control reg failed\n");
-		goto fail_rtc_enable;
-	}
 	/* Enable abort enable feature */
-	rtc_dd->alarm_ctrl_reg1 |= BIT_RTC_ABORT_ENABLE;
+	rtc_dd->alarm_ctrl_reg1 = BIT_RTC_ABORT_ENABLE;
 	rc = qpnp_write_wrapper(rtc_dd, &rtc_dd->alarm_ctrl_reg1,
 			rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
 	if (rc) {
@@ -831,23 +753,8 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 		goto fail_req_irq;
 	}
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
-	/* Read the ALARM EN Register */
-	rc = qpnp_read_wrapper(rtc_dd, &ctrl_reg,
-			rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-	if (rc) {
-		dev_err(rtc_dd->rtc_dev,"[%s %d] QPNP RTC read failed!\n",__func__,__LINE__);
-	}
-	pr_info("[%s %d] %x reg : value = %d\n",__func__, __LINE__,
-				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, ctrl_reg);
-
-	if ((ctrl_reg >> 7) & 0x01) {
-		poweron_alarm = 1;
-	}
-	else {
-		poweron_alarm = 0;
-	}
-	pr_info("[%s %d] poweron_alarm = %d\n",__func__, __LINE__, poweron_alarm);
+#ifdef CONFIG_RTC_PWROFF_ALARM
+	pr_info("[%s %d] read power off alarm time\n", __func__, __LINE__);
 
 	poa_workq = create_singlethread_workqueue("pwroff_alarm");
 	if (poa_workq == NULL) {
@@ -856,11 +763,12 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 
 	INIT_DELAYED_WORK(&poa_read_alarm_info, read_poa_info);
 	queue_delayed_work(poa_workq, &poa_read_alarm_info, 10*HZ);	// 10 seconds
+/*	qpnp_rtc_read_alarm(&spmi->dev, &g_poalarm); */
 #endif
 	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
-	dev_dbg(&spmi->dev, "Probe success !!\n");
+	dev_info(&spmi->dev, "Probe success !!\n");
 
 	return 0;
 
@@ -876,7 +784,7 @@ static int __devexit qpnp_rtc_remove(struct spmi_device *spmi)
 {
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(&spmi->dev);
 
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 	destroy_workqueue(poa_workq);
 #endif
 	device_init_wakeup(&spmi->dev, 0);
@@ -886,7 +794,7 @@ static int __devexit qpnp_rtc_remove(struct spmi_device *spmi)
 
 	return 0;
 }
-#ifdef CONFIG_LGE_PM_RTC_PWROFF_ALARM
+#ifdef CONFIG_RTC_PWROFF_ALARM
 static void qpnp_rtc_shutdown(struct spmi_device *spmi)
 {
 	u8 value[4] = {0, 0, 0, 0};

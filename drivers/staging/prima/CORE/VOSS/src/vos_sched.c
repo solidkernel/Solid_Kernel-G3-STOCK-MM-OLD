@@ -29,6 +29,9 @@
   @file vos_sched.c
   @brief VOS Scheduler Implementation
 
+  Copyright (c) 2011 QUALCOMM Incorporated.
+  All Rights Reserved.
+  Qualcomm Confidential and Proprietary
 ===========================================================================*/
 /*===========================================================================
                        EDIT HISTORY FOR FILE
@@ -420,13 +423,16 @@ VosMCThread
         /*
         ** Service the WDI message queue
         */
+        VOS_TRACE(VOS_MODULE_ID_WDI, VOS_TRACE_LEVEL_INFO,
+                  ("Servicing the VOS MC WDI Message queue"));
+
         pMsgWrapper = vos_mq_get(&pSchedContext->wdiMcMq);
 
         if (pMsgWrapper == NULL)
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: pMsgWrapper is NULL", __func__);
-           VOS_BUG(0);
+           VOS_ASSERT(0);
            break;
         }
 
@@ -436,7 +442,7 @@ VosMCThread
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: WDI Msg or Callback is NULL", __func__);
-           VOS_BUG(0);
+           VOS_ASSERT(0);
            break;
         }
 
@@ -617,6 +623,20 @@ VosMCThread
       "%s: MC Thread exiting!!!!", __func__);
   complete_and_exit(&pSchedContext->McShutdown, 0);
 } /* VosMCThread() */
+
+v_BOOL_t isWDresetInProgress(void)
+{
+   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
+                "%s: Reset is in Progress...",__func__);
+   if(gpVosWatchdogContext!=NULL)
+   {
+      return gpVosWatchdogContext->resetInProgress;
+   }
+   else
+   {
+      return FALSE;
+   }
+}
 
 v_BOOL_t isSsrPanicOnFailure(void)
 {
@@ -977,7 +997,7 @@ static int VosTXThread ( void * Arg )
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: pMsgWrapper is NULL", __func__);
-           VOS_BUG(0);
+           VOS_ASSERT(0);
            break;
         }
 
@@ -987,7 +1007,7 @@ static int VosTXThread ( void * Arg )
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: WDI Msg or Callback is NULL", __func__);
-           VOS_BUG(0);
+           VOS_ASSERT(0);
            break;
         }
         
@@ -1176,7 +1196,7 @@ static int VosRXThread ( void * Arg )
         {
           VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                     "%s: wdiRxMq message is NULL", __func__);
-          VOS_BUG(0);
+          VOS_ASSERT(0);
           // we won't return this wrapper since it is corrupt
         }
         else
@@ -1186,7 +1206,7 @@ static int VosRXThread ( void * Arg )
           {
             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                       "%s: WDI Msg or callback is NULL", __func__);
-            VOS_BUG(0);
+            VOS_ASSERT(0);
           }
           else
           {
@@ -1304,6 +1324,11 @@ VOS_STATUS vos_watchdog_close ( v_PVOID_t pVosContext )
     wait_for_completion(&gpVosWatchdogContext->WdShutdown);
     return VOS_STATUS_SUCCESS;
 } /* vos_watchdog_close() */
+
+VOS_STATUS vos_watchdog_chip_reset ( vos_chip_reset_reason_type  reason )
+{
+    return VOS_STATUS_SUCCESS;
+} /* vos_watchdog_chip_reset() */
 
 /*---------------------------------------------------------------------------
   \brief vos_sched_init_mqs: Initialize the vOSS Scheduler message queues
@@ -1887,7 +1912,6 @@ VOS_STATUS vos_watchdog_wlan_shutdown(void)
         /* wcnss has crashed, and SSR has alredy been started by Kernel driver.
          * So disable SSR from WLAN driver */
         hdd_set_ssr_required( HDD_SSR_DISABLED );
-
         /* Release the lock here before returning */
         spin_unlock(&gpVosWatchdogContext->wdLock);
         return VOS_STATUS_E_FAILURE;
@@ -1953,6 +1977,8 @@ void vos_ssr_protect(const char *caller_func)
 {
      int count;
      count = atomic_inc_return(&ssr_protect_entry_count);
+     VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+               "%s: ENTRY ACTIVE %d", caller_func, count);
 }
 
 /**
@@ -1967,4 +1993,6 @@ void vos_ssr_unprotect(const char *caller_func)
 {
    int count;
    count = atomic_dec_return(&ssr_protect_entry_count);
+   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
+               "%s: ENTRY INACTIVE %d", caller_func, count);
 }

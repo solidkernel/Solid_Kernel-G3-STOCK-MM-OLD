@@ -35,6 +35,9 @@
   
   \brief prototype for SME QoS APIs
   
+   Copyright 2008 (c) Qualcomm, Incorporated.  All Rights Reserved.
+   
+   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
@@ -242,8 +245,6 @@ v_U8_t sme_QosGetACMMask(tpAniSirGlobal pMac, tSirBssDescription *pSirBssDesc, t
         It trigger a change on UAPSD (either disable/enable UAPSD) on current QoS flows
 */
 sme_QosStatusType sme_QosTriggerUapsdChange( tpAniSirGlobal pMac );
-
-void sme_QoSUpdateUapsdBTEvent(tpAniSirGlobal pMac);
 
 #ifdef FEATURE_WLAN_ESE
 v_U8_t sme_QosESERetrieveTspecInfo(tpAniSirGlobal pMac, v_U8_t sessionId, tTspecInfo *pTspecInfo);

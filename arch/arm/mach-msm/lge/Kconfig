@@ -3,10 +3,173 @@ config MACH_LGE
 
 menu "LGE Board Selection"
 
-source "arch/arm/mach-msm/lge/8974-t1/Kconfig"
-source "arch/arm/mach-msm/lge/8974-g2/Kconfig"
-source "arch/arm/mach-msm/lge/8974ac-g3/Kconfig"
-source "arch/arm/mach-msm/lge/8974ac-dzny/Kconfig"
+config MACH_MSM8974_G3_KR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 KR"
+	help
+	  Support for the Qualcomm MSM8974 G3 KR device.
+
+config MACH_MSM8974_G3_LGU
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 LGU"
+	help
+	  Support for the Qualcomm MSM8974 G3 LG Uplus device.
+
+config MACH_MSM8974_G3_LGU_EVB
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 LGU EVB"
+	help
+	  Support for the Qualcomm MSM8974 G3 LG Uplus EVB device.
+
+config MACH_MSM8974_G3_SKT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 SKT"
+	help
+	  Support for the Qualcomm MSM8974 G3 SKT device.
+
+config MACH_MSM8974_G3_KT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 KT"
+	help
+	  Support for the Qualcomm MSM8974 G3 KT device.
+
+config MACH_MSM8974_G3_VZW
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 VZW"
+	help
+	  Support for the Qualcomm MSM8974 G3 Verizon device.
+
+config MACH_MSM8974_G3_LRA
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 LRA"
+	help
+	  Support for the Qualcomm MSM8974 G3 LRA device.
+
+config MACH_MSM8974_G3_ATT
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 ATT"
+	help
+	  Support for the Qualcomm MSM8974 G3 AT&T device.
+
+config MACH_MSM8974_G3_SPR_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 SPR US"
+	help
+	  Support for the Qualcomm MSM8974 G3 Sprint device.
+
+config MACH_MSM8974_G3_USC_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 USC US"
+	help
+	  Support for the Qualcomm MSM8974 G3 Usc device.
+
+config MACH_MSM8974_G3_TMO_US
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 TMO US"
+	help
+	  Support for the Qualcomm MSM8974 G3 AT&T device.
+
+config MACH_MSM8974_G3_CN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 CN"
+	help
+	  Support for the Qualcomm MSM8974 G3 CHINA device.
+	  
+config MACH_MSM8974_G3_CMCC_CN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 CMCC CN"
+	help
+	  Support for the Qualcomm MSM8974 G3 CMCC device.
+
+config MACH_MSM8974_G3_CTC_CN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 CTC CN"
+	help
+	  Support for the Qualcomm MSM8974 G3 CTC device.
+
+config MACH_MSM8974_G3_CUCC_CN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 CUCC CN"
+	help
+	  Support for the Qualcomm MSM8974 G3 CUCC device.
+	  
+config MACH_MSM8974_G3_KDDI
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 KDDI"
+	help
+	  Support for the Qualcomm MSM8974 G3 KDDI device.
+
+config MACH_MSM8974_G3_KDDI_EVB
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 KDDI EVB"
+	help
+	  Support for the Qualcomm MSM8974 G3 LG KDDI EVB device.
+
+config MACH_MSM8974_G3_GLOBAL_COM
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 GLOBAL COM"
+	help
+	  Support for the Qualcomm MSM8974 G3 GLOBAL device.
+
+config MACH_MSM8974_G3_CA
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 CA"
+	help
+	  Support for the Qualcomm MSM8974 G3 Canada device.
+
+config MACH_MSM8974_G3_BELL
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 BELL"
+	help
+	  Support for the Qualcomm MSM8974 G3 BELL device.
+
+config MACH_MSM8974_G3_TLS
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 TLS"
+	help
+	  Support for the Qualcomm MSM8974 G3 TLS device.
+
+config MACH_MSM8974_G3_RGS
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 RGS"
+	help
+	  Support for the Qualcomm MSM8974 G3 RGS device.
+
+config MACH_MSM8974_G3_VTR
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 VTR"
+	help
+	  Support for the Qualcomm MSM8974 G3 VTR device.
+	  
+config MACH_MSM8974_G3_WIN
+	depends on ARCH_MSM8974
+	select MACH_LGE
+	bool "MSM8974 G3 WIN"
+	help
+	  Support for the Qualcomm MSM8974 G3 WIN device.
 
 menuconfig LGE_SPECIFIC_PATCHES
     depends on MACH_LGE
@@ -90,91 +253,5 @@ config LGE_QFPROM_INTERFACE
 	depends on MACH_LGE
 	help
 	  LGE QFPROM DRIVER.
-
-
-config LGE_DIAG_BYPASS
-	tristate "Support LGE diag bypass for factory"
-	default n
-	depends on MACH_LGE
-	help
-	  LGE diag bypass
-
-
-config LGE_LCD_OFF_DIMMING
-	tristate "Support LGE LCD off dimming reboot"
-	default n
-	depends on MACH_LGE
-	help
-	  Support lcd off or dimming reboot when reboot reason is "LCD off". lcd stay dimming until lcd is off and on again.
-
-config LGE_LIMIT_FREQ_TABLE
-    bool "Set limitation to cpu frquency for manufacturing"
-    default n
-    depends on MACH_LGE
-    help
-      set limitation to cpu frquency for manufacturing
-
-config LGE_GDSC_SWCONTROL
-	bool "Support to use controlling gdsc by sw for msm8974AA"
-	default n
-	depends on MACH_LGE
-	help
-	  When enable this, LGE's sw control code for gdsc enable and diasble
-	  are used. Normally, msm8974AA chipset based LGE model may use it.
-
-config LGE_KRAIT_BOOST_ENABLE
-        bool "Support Kraits Voltage Boost up"
-        help
-        Select if enable Krait Voltage Boost up.
-
-config PRE_SELF_DIAGNOSIS
-	tristate "Support LGE self diagnosis for factory"
-	default n
-	depends on MACH_LGE
-	help
-	  Support for the Qualcomm MSM8974 T1 AT&T device.
-
-config LGE_USE_DEFAULT_HARD_RESET
-	bool "On reboot, apply hard reset unless memory contents must be maintained"
-	default n
-	help
-	  Nobody can guarantee stablity upon continuous warm resets.
-
-config LGE_KERNEL_FTM_ITEM
-	tristate "Support LGE Kernel FTM ITEM"
-	default n
-	depends on MACH_LGE
-	help
-	Read/Write ftm items in misc.
-
-config LGE_GPIO_SIM_DETECT
-	tristate "Support LGE GPIO SIM DETECT"
-	default n
-	depends on MACH_LGE
-	help
-	read SIM detect pin by GPIO.
-
-config LGE_SET_CRASH_HANDLER_DEFAULT_DISABLE
-       bool "Set download_mode's default value to 0"
-       default n
-       depends on MACH_LGE
-
-config POWER_OFF_DVDD_SHUTDOWN
-	bool "Use dVdd shutdown when power off"
-	default n
-	help
-	 PM8941's PBS boot sequence is hang sometimes.
-	 dVdd shutdown will prevent PBS hang.
-
-config LGE_PM_UNIFIED_NODE
-	bool "enable LGE PM Unified sysfs node"
-	help
-	Support LGE PM Unified sysfs node
-
-config LGE_KRAIT_BOOST_ENABLE
-	bool "Support Kraits Voltage Boost up"
-	default n
-	help
-	 Select if enable Krait Voltage Boost up.
 
 endmenu
