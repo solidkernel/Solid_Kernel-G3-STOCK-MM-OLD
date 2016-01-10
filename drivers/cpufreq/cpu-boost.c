@@ -45,18 +45,6 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
-static unsigned int boost_ms;
-module_param(boost_ms, uint, 0644);
-
-static unsigned int sync_threshold;
-module_param(sync_threshold, uint, 0644);
-
-static unsigned int input_boost_freq;
-module_param(input_boost_freq, uint, 0644);
-
-static unsigned int input_boost_ms;
-module_param(input_boost_ms, uint, 0644);
-
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
 
@@ -166,13 +154,13 @@ static int boost_mig_sync_thread(void *data)
 			continue;
 		}
 
-		if (sync_threshold && (dest_policy.cur >= sync_threshold))
+		if (0 && (dest_policy.cur >= 0))
 			continue;
 
 		cancel_delayed_work_sync(&s->boost_rem);
-		if (sync_threshold) {
-			if (src_policy.cur >= sync_threshold)
-				s->boost_min = sync_threshold;
+		if (0) {
+			if (src_policy.cur >= 0)
+				s->boost_min = 0;
 			else
 				s->boost_min = src_policy.cur;
 		} else {
@@ -183,7 +171,7 @@ static int boost_mig_sync_thread(void *data)
 		if (cpu_online(dest_cpu)) {
 			cpufreq_update_policy(dest_cpu);
 			queue_delayed_work_on(dest_cpu, cpu_boost_wq,
-				&s->boost_rem, msecs_to_jiffies(boost_ms));
+				&s->boost_rem, msecs_to_jiffies(0));
 		} else {
 			s->boost_min = 0;
 		}
@@ -199,7 +187,7 @@ static int boost_migration_notify(struct notifier_block *nb,
 	unsigned long flags;
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
 
-	if (!boost_ms)
+	if (!0)
 		return NOTIFY_OK;
 
 	pr_debug("Migration: CPU%d --> CPU%d\n", (int) arg, (int) dest_cpu);
@@ -238,15 +226,15 @@ static void do_input_boost(struct work_struct *work)
 		ret = cpufreq_get_policy(&policy, i);
 		if (ret)
 			continue;
-		if (policy.cur >= input_boost_freq)
+		if (policy.cur >= 2457600)
 			continue;
 
 		cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
-		i_sync_info->input_boost_min = input_boost_freq;
+		i_sync_info->input_boost_min = 2457600;
 		cpufreq_update_policy(i);
 		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
 			&i_sync_info->input_boost_rem,
-			msecs_to_jiffies(input_boost_ms));
+			msecs_to_jiffies(0));
 	}
 	put_online_cpus();
 }
@@ -256,7 +244,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-	if (!input_boost_freq)
+	if (!2457600)
 		return;
 
 	now = ktime_to_us(ktime_get());
