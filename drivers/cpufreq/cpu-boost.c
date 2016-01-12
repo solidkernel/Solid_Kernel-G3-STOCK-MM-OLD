@@ -45,6 +45,12 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
+static unsigned int input_boost_freq = 2457600;
+module_param(input_boost_freq, uint, 0644);
+
+static unsigned int input_boost_ms = 5000;
+module_param(input_boost_ms, uint, 0644);
+
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
 
@@ -226,15 +232,15 @@ static void do_input_boost(struct work_struct *work)
 		ret = cpufreq_get_policy(&policy, i);
 		if (ret)
 			continue;
-		if (policy.cur >= 2457600)
+		if (policy.cur >= input_boost_freq)
 			continue;
 
 		cancel_delayed_work_sync(&i_sync_info->input_boost_rem);
-		i_sync_info->input_boost_min = 2457600;
+		i_sync_info->input_boost_min = input_boost_freq;
 		cpufreq_update_policy(i);
 		queue_delayed_work_on(i_sync_info->cpu, cpu_boost_wq,
 			&i_sync_info->input_boost_rem,
-			msecs_to_jiffies(0));
+			msecs_to_jiffies(input_boost_ms));
 	}
 	put_online_cpus();
 }
@@ -244,7 +250,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-	if (!2457600)
+	if (!input_boost_freq)
 		return;
 
 	now = ktime_to_us(ktime_get());
