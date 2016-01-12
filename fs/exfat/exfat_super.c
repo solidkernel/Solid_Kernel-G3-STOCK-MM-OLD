@@ -2021,6 +2021,7 @@ enum {
 	Opt_err_panic,
 	Opt_err_ro,
 	Opt_err,
+	Opt_utf8_hack,
 #if EXFAT_CONFIG_DISCARD
 	Opt_discard,
 #endif
@@ -2044,6 +2045,7 @@ static const match_table_t exfat_tokens = {
 	{Opt_err_cont, "errors=continue"},
 	{Opt_err_panic, "errors=panic"},
 	{Opt_err_ro, "errors=remount-ro"},
+	{Opt_utf8_hack, "utf8"},
 #if EXFAT_CONFIG_DISCARD
 	{Opt_discard, "discard"},
 #endif
@@ -2158,6 +2160,8 @@ static int parse_options(char *options, int silent, int *debug,
 		opts->readahead_kb = option * 1024;
 		break;
 #endif
+		case Opt_utf8_hack:
+			break;
 		default:
 			if (!silent) {
 				printk(KERN_ERR "[EXFAT] Unrecognized mount option %s or missing value\n", p);
@@ -2408,7 +2412,11 @@ static void exfat_debug_kill_sb(struct super_block *sb)
 
 static struct file_system_type exfat_fs_type = {
 	.owner       = THIS_MODULE,
+#if defined(CONFIG_MACH_LGE) || defined(CONFIG_HTC_BATT_CORE)
+	.name        = "texfat",
+#else
 	.name        = "exfat",
+#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
 	.get_sb      = exfat_get_sb,
 #else
@@ -2444,3 +2452,11 @@ void __exit exit_exfat_fs(void)
 //module_exit(exit_exfat_fs);
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("exFAT Filesystem Driver");
+#ifdef MODULE_ALIAS_FS
+#if defined(CONFIG_MACH_LGE) || defined(CONFIG_HTC_BATT_CORE)
+MODULE_ALIAS_FS("texfat");
+#else
+MODULE_ALIAS_FS("exfat");
+#endif
+#endif
