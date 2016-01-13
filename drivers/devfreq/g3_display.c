@@ -34,14 +34,6 @@ when       who	  what, where, why
 #define _trace_macro_(tag, a, ...)      printk(KERN_INFO "[DFPSv1|"#tag"]"a, ##__VA_ARGS__)
 #define trace(...)             _trace_macro_(INFO, ##__VA_ARGS__)
 
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-#define FIXED_60FPS   60
-#define FIXED_FPS     77
-#define RELEASE_FPS   88
-
-unsigned long g_fixed_freq = RELEASE_FPS;
-#endif
-
 extern int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps);
 struct fb_info **fbi_list;
 int pdev_list_cnt;
@@ -78,13 +70,12 @@ struct platform_driver g3_display_driver = {
 
 static int g3_cur_level = _LV_END_ - 1;
 struct display_opp_table g3_display_opp_table[] = {
-	{LV_0, 60, 0},
+	{LV_0, 50, 0},
 	{LV_1, 60, 0},
 };
 
 static int g3_get_cur_freq(struct device *dev, unsigned long *freq){
 	*freq = g3_display_opp_table[g3_cur_level].freq;
-//	trace("%s, cur_freq=%lu\n", __FUNCTION__, g3_display_opp_table[g3_cur_level].freq);
 	return 0;
 }
 
@@ -104,17 +95,14 @@ struct devfreq_simple_ondemand_data g3_display_ondemand_data = {
 };
 
 void g3_release_pm(struct device *dev){
-	//trace("%s\n", __FUNCTION__);
 }
 
 #ifdef CONFIG_PM
 int g3_display_suspend(struct device *dev){
-	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 
 int g3_display_resume(struct device *dev){
-	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 #endif
@@ -203,9 +191,6 @@ u32 msm_fb_read_frame_count(void){
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 	return ctl->play_cnt;
-//	struct mdss_panel_info *mdss_panel = mfd->panel_info;
-//	trace("%s, %d\n", __FUNCTION__, mdss_panel->frame_count);
-//	return mdss_panel->frame_count;
 }
 
 u32 msm_fb_read_frame_rate(void){
@@ -229,12 +214,7 @@ void g3_display_read_fps(struct g3_display_data *data, struct devfreq_dev_status
 
 	stat->current_frequency = opp_get_freq(data->curr_opp);
 	stat->total_time = msm_fb_read_frame_rate();
-//	stat->total_time = g3_display_opp_table[g3_cur_level].freq;
 	stat->busy_time = (data->fps_data.fps) * (1000 / g3_display_profile.polling_ms);
-
-	/* trace("total_time=%lu, busy_time=%lu, util=%lu\n",
-		stat->total_time, stat->busy_time, (stat->busy_time * 100 / stat->total_time));
-	*/
 }
 
 int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
@@ -258,16 +238,7 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 
 	mutex_lock(&mdp5_data->dfps_lock);
 
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    if (g_fixed_freq == FIXED_FPS)
-        wdfps = FIXED_60FPS;
-    else
-        wdfps = g3_display_opp_table[val].freq;
-
-    trace ("[FPS] wdfps = %d",wdfps);
-#else
 	wdfps = g3_display_opp_table[val].freq;
-#endif
 
 	if (wdfps == pdata->panel_info.mipi.frame_rate) {
 		pr_debug("%s: FPS is already %d\n", __func__, wdfps);
@@ -275,9 +246,9 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 		return 0;
 	}
 
-	if (wdfps < 60) {
-		pr_err("Unsupported FPS. Configuring to min_fps = 60\n");
-		wdfps = 60;
+	if (wdfps < 50) {
+		pr_err("Unsupported FPS. Configuring to min_fps = 50\n");
+		wdfps = 50;
 		ret = mdss_mdp_ctl_update_fps(mdp5_data->ctl, wdfps);
 	} else if (wdfps > 60) {
 		pr_err("Unsupported FPS. Configuring to max_fps = 60\n");
@@ -303,7 +274,6 @@ int g3_display_send_event_to_mdss_display(unsigned long val, void *v){
 int g3_display_pm_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *_data){
 	/* TODO */
-	//trace("%s\n", __FUNCTION__);
 	return 0;
 }
 
@@ -319,9 +289,6 @@ int g3_opp_get_idx(unsigned long new_freq,
 int g3_display_profile_target(struct device *dev,
 		unsigned long *_freq, u32 options){
 	int ret = 0;
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    unsigned long required_freq = *_freq;
-#endif
 	struct g3_display_data *data = dev_get_drvdata(dev);
 	struct opp *opp = devfreq_recommended_opp(dev, _freq, options);
 	unsigned long old_freq = opp_get_freq(data->curr_opp);
@@ -330,17 +297,8 @@ int g3_display_profile_target(struct device *dev,
 
 	if(old_freq == new_freq) return ret;
 
-#ifdef CONFIG_MACH_MSM8974_DZNY_DCM
-    if (required_freq == FIXED_FPS)
-        g_fixed_freq = FIXED_FPS;
-    else if (required_freq == RELEASE_FPS)
-        g_fixed_freq = RELEASE_FPS;
-#endif
-
 	old_freq_idx = g3_opp_get_idx(old_freq, g3_display_opp_table);
 	new_freq_idx = g3_opp_get_idx(new_freq, g3_display_opp_table);
-
-	//trace("%lu => %lu, %u => %u\n", old_freq, new_freq, old_freq_idx, new_freq_idx);
 
 	if(new_freq_idx > old_freq_idx){
 		if(g3_cur_level < _LV_END_ - 1){
@@ -390,8 +348,6 @@ void g3_display_profile_exit(struct device *dev){
 	struct platform_device *pdev = container_of(dev, struct platform_device,
 			dev);
 	struct g3_display_data *data = platform_get_drvdata(pdev);
-
-	//trace("%s\n", __FUNCTION__);
 
 	devfreq_unregister_opp_notifier(dev, data->devfreq);
 }
