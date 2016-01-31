@@ -2555,7 +2555,8 @@ static int get_ic_info(struct synaptics_ts_data *ts)
 	TOUCH_DEBUG(DEBUG_BASE_INFO, "FW_REVISION_REG = %d\n", ts->fw_info.fw_revision);
 
 	if (ts->fw_info.fw_product_id == NULL) {
-		goto error;
+		TOUCH_ERR_MSG("product_id is null. \n");
+		return -ENOENT;
 	}
 
 	if (!(strncmp(ts->fw_info.fw_product_id, "PLG313", 6))
@@ -2602,6 +2603,9 @@ static int get_ic_info(struct synaptics_ts_data *ts)
 	/*because s3621 doesn't support knock-on*/
 	if (!strncmp(ts->fw_info.fw_product_id, "PLG298" , 6))
 		ts->pdata->role->use_sleep_mode = 0;
+
+	/* Release Firrmware */
+	release_firmware(fw_entry);
 	return 0;
 error:
 	memset(&fw_entry, 0, sizeof(fw_entry));
