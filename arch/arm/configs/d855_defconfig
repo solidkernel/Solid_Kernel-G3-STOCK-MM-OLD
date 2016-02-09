@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.0_Solid_Kernel_V1.6-G3 Kernel Configuration
+# Linux/arm 3.4.0_Solid_Kernel_V1.7-G3 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
