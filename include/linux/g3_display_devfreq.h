@@ -43,7 +43,7 @@ struct display_opp_table {
 };
 
 enum g3_display_clk_level_idx {
-	LV_0 = 0,
+	LV_0,
 	LV_1,
 //	LV_2,
 	_LV_END_
